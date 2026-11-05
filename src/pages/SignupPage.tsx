@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { backend } from '../data';
 import { LIMITS, type PublicEvent } from '../../shared/schema';
 import { formatTime } from '../../shared/roster';
-import { errorText, rememberSignup, usePolling } from '../lib/util';
+import { errorText, rememberSignup, usePolling, useTitle } from '../lib/util';
 
 export function SignupPage() {
   const { slug = '' } = useParams();
@@ -25,6 +25,10 @@ export function SignupPage() {
   }, [slug]);
   useEffect(load, [load]);
   usePolling(load, 10000);
+  useTitle(event ? (done ? 'Signed up' : event.title) : event === null ? 'Event not found' : '');
+  useEffect(() => {
+    if (done) document.getElementById('done-h')?.focus();
+  }, [done]);
 
   if (event === undefined) return <p>Loading…</p>;
   if (event === null)
@@ -53,6 +57,7 @@ export function SignupPage() {
       load();
     } catch (err) {
       setError(errorText(err));
+      setTimeout(() => document.getElementById('vol-contact')?.focus(), 0);
       load();
     } finally {
       setBusy(false);
@@ -61,8 +66,8 @@ export function SignupPage() {
 
   if (done) {
     return (
-      <section aria-live="polite">
-        <h1>You're signed up. Thank you!</h1>
+      <section>
+        <h1 id="done-h" tabIndex={-1}>You're signed up. Thank you!</h1>
         <div className="success">
           <strong>{done.role}</strong>, {done.when}
           {event.location && <> at {event.location}</>}
@@ -74,7 +79,14 @@ export function SignupPage() {
         <p>
           <a href={done.removeUrl}>Remove me from this slot</a>
         </p>
-        <button className="secondary" onClick={() => { setDone(null); setPicked(null); }}>
+        <button
+          className="secondary"
+          onClick={() => {
+            setDone(null);
+            setPicked(null);
+            setTimeout(() => document.querySelector<HTMLElement>('ul[aria-label="Slots"] button:not([disabled])')?.focus(), 0);
+          }}
+        >
           Sign up for another slot
         </button>
       </section>
@@ -109,7 +121,13 @@ export function SignupPage() {
                   setTimeout(() => document.getElementById('vol-name')?.focus(), 0);
                 }}
                 disabled={open === 0}
-                aria-label={open === 0 ? `${s.role} is full` : `Pick ${s.role}, ${formatTime(s.start)} to ${formatTime(s.end)}`}
+                id={`pick-${s.id}`}
+                aria-pressed={picked === s.id}
+                aria-label={
+                  open === 0
+                    ? `Full: ${s.role}`
+                    : `${picked === s.id ? 'Picked' : 'Pick'} ${s.role}, ${formatTime(s.start)} to ${formatTime(s.end)}`
+                }
                 className={picked === s.id ? '' : 'secondary'}
               >
                 {open === 0 ? 'Full' : picked === s.id ? 'Picked' : 'Pick'}
@@ -139,7 +157,8 @@ export function SignupPage() {
               value={contact}
               onChange={(e) => setContact(e.target.value)}
               autoComplete="tel"
-              aria-describedby="contact-help"
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? 'form-err contact-help' : 'contact-help'}
             />
             <p id="contact-help" className="small muted">
               Only the coordinator sees this, to reach you about this event.
@@ -161,7 +180,7 @@ export function SignupPage() {
             <input id="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
           </div>
           {error && (
-            <p className="alert" role="alert">
+            <p id="form-err" className="alert" role="alert">
               {error}
             </p>
           )}
@@ -169,7 +188,15 @@ export function SignupPage() {
             <button type="submit" disabled={busy || (shift.adultsOnly && isStudent)}>
               {busy ? 'Saving…' : 'Sign me up'}
             </button>
-            <button type="button" className="secondary" onClick={() => setPicked(null)}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                const last = picked;
+                setPicked(null);
+                setTimeout(() => document.getElementById(`pick-${last}`)?.focus(), 0);
+              }}
+            >
               Cancel
             </button>
           </div>
@@ -185,6 +212,10 @@ export function RemovePage() {
   const [msg, setMsg] = useState('');
   const id = new URLSearchParams(location.search).get('id') ?? '';
   const token = location.hash.slice(1);
+  useTitle('Remove me');
+  useEffect(() => {
+    if (state !== 'ask') document.getElementById('remove-result')?.focus();
+  }, [state]);
 
   async function remove() {
     try {
@@ -197,7 +228,7 @@ export function RemovePage() {
   }
 
   return (
-    <section aria-live="polite">
+    <section>
       <h1>Take your name off this slot?</h1>
       {state === 'ask' && (
         <>
@@ -208,11 +239,15 @@ export function RemovePage() {
         </>
       )}
       {state === 'done' && (
-        <div className="success">
+        <div id="remove-result" className="success" role="status" tabIndex={-1}>
           Done. Your name and contact details were deleted from this slot. Thanks for letting us know. <Link to={`/e/${slug}`}>See other slots</Link>
         </div>
       )}
-      {state === 'error' && <div className="alert">{msg}</div>}
+      {state === 'error' && (
+        <div id="remove-result" className="alert" role="alert" tabIndex={-1}>
+          {msg}
+        </div>
+      )}
     </section>
   );
 }

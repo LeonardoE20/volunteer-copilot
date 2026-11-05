@@ -39,6 +39,13 @@ export function errorText(e: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
+/** Set the browser tab title for this screen. */
+export function useTitle(title: string) {
+  useEffect(() => {
+    document.title = title ? `${title} – Volunteer Copilot` : 'Volunteer Copilot';
+  }, [title]);
+}
+
 /** Run `fn` every `ms` while the tab is visible. */
 export function usePolling(fn: () => void, ms: number) {
   const ref = useRef(fn);

@@ -5,7 +5,7 @@ import type { AiSource } from '../data/backend';
 import { LIMITS, type ParsedEvent, type ParsedShift } from '../../shared/schema';
 import { parseContactList } from '../../shared/contacts';
 import { SAMPLE_ADVISOR_CONTACT, SAMPLE_CONTACTS_TEXT, SAMPLE_NOTE } from '../data/seed';
-import { errorText, myEvents, rememberEvent } from '../lib/util';
+import { errorText, myEvents, rememberEvent, useTitle } from '../lib/util';
 
 const blankShift = (): ParsedShift => ({ role: '', start: '09:00', end: '12:00', needed: 2, adultsOnly: false });
 
@@ -19,6 +19,7 @@ export function CreatePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const mine = myEvents();
+  useTitle('Create an event');
 
   const contacts = parseContactList(contactsText);
 
@@ -53,6 +54,7 @@ export function CreatePage() {
     const bad = draft.shifts.find((s) => !s.role.trim() || s.end <= s.start || s.needed < 1);
     if (bad) {
       setError('Every slot needs a name, at least 1 person, and an end time after its start time.');
+      setTimeout(() => document.getElementById('create-err')?.focus(), 0);
       return;
     }
     setBusy(true);
@@ -62,6 +64,7 @@ export function CreatePage() {
       nav(`/c/${slug}?new=1#${token}`);
     } catch (e) {
       setError(errorText(e));
+      setTimeout(() => document.getElementById('create-err')?.focus(), 0);
     } finally {
       setBusy(false);
     }
@@ -113,7 +116,7 @@ export function CreatePage() {
       </div>
 
       {error && (
-        <div className="alert" role="alert">
+        <div id="create-err" className="alert" role="alert" tabIndex={-1}>
           {error}
         </div>
       )}
@@ -240,6 +243,11 @@ export function CreatePage() {
             </p>
           </div>
 
+          {error && (
+            <p className="alert" aria-hidden="true">
+              {error}
+            </p>
+          )}
           <div className="row">
             <button onClick={publish} disabled={busy}>
               {busy ? 'Publishing…' : 'Publish sign-up link'}

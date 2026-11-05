@@ -154,7 +154,7 @@ export const NoteInput = z.object({
 
 export function firstError(err: z.ZodError): string {
   const i = err.issues[0];
-  return i ? `${i.path.join('.') || 'input'}: ${i.message}` : 'Invalid input';
+  return i ? i.message : 'Invalid input';
 }
 
 // ---------- Outreach (nudges and backfill) ----------

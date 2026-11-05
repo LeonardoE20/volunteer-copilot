@@ -7,7 +7,7 @@ import { LIMITS } from '../../shared/schema';
 import { filledFor, formatTime, gaps, shiftLabel, totals } from '../../shared/roster';
 import { isYouthSafe, sendLinks } from '../../shared/outreach';
 import { parseContactList } from '../../shared/contacts';
-import { copyText, errorText, hoursBetween, usePolling } from '../lib/util';
+import { copyText, errorText, hoursBetween, usePolling, useTitle } from '../lib/util';
 
 const DEMO_PEOPLE = [
   ['Pat Example', '(408) 555-0121', false],
@@ -53,6 +53,7 @@ export function CoordinatorPage() {
   }, [slug, token]);
   useEffect(load, [load]);
   usePolling(load, 5000);
+  useTitle(roster ? `Roster: ${roster.event.title}` : 'Roster');
 
   async function draft(shiftId: string, kind: OutreachKind) {
     setBusy(true);
@@ -188,7 +189,7 @@ export function CoordinatorPage() {
                 {g.shift.adultsOnly && ' · Adults only'}
               </div>
             </div>
-            <button onClick={() => draft(g.shift.id, 'nudge')} disabled={busy}>
+            <button onClick={() => draft(g.shift.id, 'nudge')} disabled={busy} aria-label={`Fill this gap: ${shiftLabel(g.shift)}`}>
               Fill this gap
             </button>
           </div>
