@@ -183,7 +183,7 @@ export function planOutreach(roster: Roster, shiftId: string, kind: OutreachKind
       reason: hasAdvisor
         ? 'Students are messaged together, with the advisor included (youth-safe rule).'
         : 'Blocked: add the advisor’s contact first. Students are never messaged one-to-one.',
-      blocked: hasAdvisor ? undefined : 'Add the advisor’s phone or email in Settings before messaging students.',
+      blocked: hasAdvisor ? undefined : 'Add the advisor’s phone or email (Advisor section below) before messaging students.',
       why: '',
       ctx,
     });

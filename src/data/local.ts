@@ -2,6 +2,7 @@
 // It enforces the same rules as the server (validation, capacity, adults-only, tokens),
 // so the demo behaves like the real thing.
 import {
+  AdvisorInput,
   ContactInput,
   CreateEventInput,
   SignupInput,
@@ -201,6 +202,17 @@ export class LocalBackend implements Backend {
     for (const c of valid) {
       if (!known.has(c.contact.toLowerCase())) e.contacts.push({ ...c, id: newId() });
     }
+    this.save(db);
+  }
+
+  async setAdvisor(slug: string, token: string, advisorName: string, advisorContact: string) {
+    const parsed = AdvisorInput.safeParse({ advisorName, advisorContact });
+    if (!parsed.success) throw new BackendError(firstError(parsed.error), 'invalid');
+    const db = this.load();
+    const e = this.get(db, slug);
+    await this.auth(e, token);
+    e.event.advisorName = parsed.data.advisorName;
+    e.event.advisorContact = parsed.data.advisorContact;
     this.save(db);
   }
 

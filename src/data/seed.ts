@@ -5,7 +5,7 @@ import type { ContactInput } from '../../shared/schema';
 /** Illustrative messy note (invented; not from any real club). */
 export const SAMPLE_NOTE = `Sat the 14th, pancake breakfast at the church hall?? setup starts 6:30 (Dave has keys, I think). Need ~6 on griddles 7-9, 4 on tables/clean 7-10, 2 at the cash box 7-10 (adults only, Linda said). Key Club kids can do syrup/tables, need like 8, they get hours, ask Ms. Ortiz to sign sheet after. Bring aprons. Tom might bail, his knee. Need coffee urn from the storage unit, Ray has the code. Last time we ran out of sausage by 9:30, order 20 lbs more. Text me not email. Tell Key Club by Wed so they can get rides. Cleanup 10-1, done by 1 for the 1:30 wedding.`;
 
-export const SAMPLE_ADVISOR_CONTACT = 'ortiz.advisor@example.org';
+export const SAMPLE_ADVISOR_CONTACT = '(408) 555-0150';
 
 export const SAMPLE_CONTACTS: ContactInput[] = [
   { name: 'Dave Sample', contact: '(408) 555-0101', isStudent: false, pastRoles: ['Setup', 'Griddle'] },

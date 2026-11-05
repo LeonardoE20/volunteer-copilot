@@ -1,21 +1,15 @@
-// Demo-mode "AI". Foundation placeholder; the rehearsal build replaces this with the
-// rule-based parser and message templates in shared/.
+// Demo-mode "AI": the rule-based parser and message templates. Runs entirely in the browser.
 import type { LocalAi } from './local';
+import { ruleBasedParse } from '../../shared/parser';
+import { planOutreach, withTemplateText } from '../../shared/outreach';
 
 export const mockAi: LocalAi = {
-  async parse() {
-    return {
-      title: 'New event',
-      date: '',
-      location: '',
-      shifts: [{ role: 'Volunteer', start: '09:00', end: '12:00', needed: 4, adultsOnly: false }],
-      todos: [],
-      advisorName: '',
-      contactPreference: 'any',
-      studentsWelcome: true,
-    };
+  async parse(note) {
+    // A short pause so the demo reads as "working", without pretending to be slow AI.
+    await new Promise((r) => setTimeout(r, 250));
+    return ruleBasedParse(note);
   },
-  async draft() {
-    return [];
+  async draft(roster, shiftId, kind, signupUrl) {
+    return withTemplateText(planOutreach(roster, shiftId, kind, signupUrl));
   },
 };

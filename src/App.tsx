@@ -1,14 +1,8 @@
 import { Link, Route, Routes } from 'react-router-dom';
 import { backend } from './data';
-
-function Home() {
-  return (
-    <section>
-      <h1>Volunteer Copilot</h1>
-      <p className="muted">Foundation build. The event screens arrive in the rehearsal build.</p>
-    </section>
-  );
-}
+import { CreatePage } from './pages/CreatePage';
+import { RemovePage, SignupPage } from './pages/SignupPage';
+import { CoordinatorPage } from './pages/CoordinatorPage';
 
 function NotFound() {
   return (
@@ -32,14 +26,17 @@ export function App() {
           Volunteer Copilot
         </Link>
         {backend.mode === 'local' && (
-          <span className="badge" title="Data stays in this browser. AI is simulated.">
-            Demo mode
+          <span className="badge" title="Data stays in this browser. AI is simulated with simple rules.">
+            Demo mode: data stays on this device
           </span>
         )}
       </header>
       <main id="main" className="wrap">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<CreatePage />} />
+          <Route path="/e/:slug" element={<SignupPage />} />
+          <Route path="/e/:slug/remove" element={<RemovePage />} />
+          <Route path="/c/:slug" element={<CoordinatorPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

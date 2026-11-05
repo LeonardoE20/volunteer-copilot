@@ -143,6 +143,11 @@ export const CreateEventInput = z.object({
 });
 export type CreateEventInput = z.infer<typeof CreateEventInput>;
 
+export const AdvisorInput = z.object({
+  advisorName: text(LIMITS.nameChars),
+  advisorContact: z.union([z.literal(''), contactField]),
+});
+
 export const NoteInput = z.object({
   note: z.string().transform(clean).pipe(z.string().min(10, 'Paste a longer note').max(LIMITS.noteChars)),
 });

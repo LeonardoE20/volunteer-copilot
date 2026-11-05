@@ -49,6 +49,9 @@ export class RemoteBackend implements Backend {
   async addContacts(slug: string, token: string, contacts: ContactInput[]) {
     await rpc('contacts', { slug, token, contacts });
   }
+  async setAdvisor(slug: string, token: string, advisorName: string, advisorContact: string) {
+    await rpc('advisor', { slug, token, advisorName, advisorContact });
+  }
   draftOutreach(slug: string, token: string, shiftId: string, kind: OutreachKind, signupUrl: string) {
     return rpc<{ drafts: Draft[]; source: AiSource }>('draft', { slug, token, shiftId, kind, signupUrl });
   }

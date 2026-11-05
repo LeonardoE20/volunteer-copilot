@@ -24,6 +24,7 @@ export interface Backend {
   getRoster(slug: string, token: string): Promise<Roster>;
   setStatus(slug: string, token: string, signupId: string, status: SignupStatus): Promise<void>;
   addContacts(slug: string, token: string, contacts: ContactInput[]): Promise<void>;
+  setAdvisor(slug: string, token: string, advisorName: string, advisorContact: string): Promise<void>;
   draftOutreach(
     slug: string,
     token: string,
