@@ -1,81 +1,98 @@
-# Status and decisions for Leonardo (updated Nov 5 2026)
+# Status and decisions for Leonardo (final, Nov 5 2026)
 
-Everything you need to know or do is on this page.
+## FIRST: push the two tags (could not be done from the cloud session)
+The cloud session could push the branch but not tags (GitHub answered 403). The GitHub connector there
+has no tool to create tags or releases. Run these on your computer, in your clone of the repo:
+```bash
+git fetch origin claude/brave-pasteur-jembvq
+```
+```bash
+git tag -a foundation-v0 5e94780 -m "Generic plumbing only (see docs/DISCLOSURE.md)"
+```
+```bash
+git tag -a rehearsal-full 84bf9c6 -m "Full practice build (see docs/DISCLOSURE.md)"
+```
+```bash
+git push origin foundation-v0 rehearsal-full
+```
+Check that they exist on GitHub:
+```bash
+git ls-remote --tags origin
+```
 
-## What is done
-- **Research (Phase 0):** competitor audit, coordinator pain points, and notes on how Kiwanis and Key
-  Club coordinate (`docs/research/`). An honest wedge assessment (`docs/WEDGE.md`): the wedge is real but thin.
-- **Spec (Phase 1):** `docs/SPEC.md`, approved with the decisions below.
-- **Foundation (Phase 2), tag `foundation-v0` = commit `5e94780`:** scaffold, config, database schema with
-  row-level security, server-only Claude wrapper, validation, demo storage, design tokens, fake seed data.
-- **Rehearsal prototype (Phase 3), tag `rehearsal-full` = commit `84bf9c6`:** every Must and Should item in the spec.
-  - Paste a note, get a draft roster, edit it, publish.
-  - Volunteers sign up from a link with no account, and can remove themselves.
-  - A live roster with gaps.
-  - **Fill this gap** picks who to ask and drafts the messages. Students only ever get a group message with the advisor.
-  - Marking a drop-out or no-show drafts backfill messages right away.
-  - A club contact list, an advisor section, and a printable student-hours sheet.
-  - Nothing is ever sent automatically.
-  - It runs fully in demo mode. The server function and Supabase migrations are written but not deployed.
-- **Phase 4 (on top of `rehearsal-full`, commits `3a2d1da` and `8dc8787`):**
-  - The security review found no high-severity issues. Seven medium and low ones were fixed: the AI budget cap can no longer be used up by one client; sign-up spam is limited to 3 slots per person; students are refused where the event doesn't take them; email addresses are stricter; contact details the AI invents are stripped; a half-built event is rolled back.
-  - The accessibility audit found two high and four medium issues, plus a few low ones, all fixed: the focus ring and input borders now meet contrast; focus moves sensibly after actions; each screen has its own tab title; error messages are linked to their fields; there is no sideways scroll at 320px wide.
-
-## What was tested
-- **46 automated tests pass** (`npm test`), covering:
-  - the note parser on 6 messy notes;
-  - the "who to ask" ranking;
-  - the youth-safe rule (a student is never in a one-to-one draft, and student drafts are blocked without an advisor contact);
-  - overbooking and adults-only checks;
-  - token checks;
-  - input validation;
-  - the server function without keys;
-  - rejecting bad AI output, including an AI reply that tries to add links or change recipients.
-- **A browser run of the whole flow at phone size passes** (`scripts/e2e-demo.cjs`): publish, volunteer sign-up, roster update, fill a gap, drop-out backfill, with no console errors.
-- **Not tested:** the live Netlify, Supabase and Claude path. You asked for no accounts or keys, so the server code is reviewed and unit-tested only, never run against a real database. No real coordinator has tried it yet.
-
-## What still needs work
-1. **Confirm the youth-protection rule with the partners at the 10:45 panel.** The app's wording calls it
-   "our understanding". Do not present it as a proven fact about the Campbell club. Do not quote any no-show statistic.
-2. **Demo mode keeps data on one device.** A partner's phone cannot sign up for real unless the live
-   version is switched on. The "Simulate a volunteer" button stands in for the second phone.
-3. **"Adults only" is self-declared.** A student could leave the student box unticked. Say so if asked.
-4. **No deletion of old events yet.** Volunteers can remove themselves, but there is no automatic
-   clean-up of contact details after an event. Add one before real use with minors' data.
-5. **The rule-based parser is simple.** It handles common notes well, but odd wording can produce wrong
-   slots. The coordinator always reviews the draft. The real AI is wired in but has not been tried live.
-6. **Not built (Stretch):** real SMS through Twilio, the advisor's "tap to confirm hours" link, and
-   evening-before reminders.
-7. **The spec's `drafts` table was dropped.** Drafts live only on the coordinator's screen, which is
-   simpler and stores less personal data.
-8. Much of the competitor and pain-point research is marked UNVERIFIED, because this session's network
-   blocked the vendor sites and Reddit.
-
-## Things you must do
-1. **Push the two tags.** This session's GitHub access could push the branch but not tags. On your computer:
-   ```bash
-   git fetch origin claude/brave-pasteur-jembvq
-   ```
-   ```bash
-   git tag -a foundation-v0 5e94780 -m "Generic plumbing only"
-   ```
-   ```bash
-   git tag -a rehearsal-full 84bf9c6 -m "Full practice build"
-   ```
-   ```bash
-   git push origin foundation-v0 rehearsal-full
-   ```
-2. **Review and merge the pull request** into `main` when you're happy. It was opened but not merged.
-3. **Read the event rules first thing Friday** and follow `docs/FRIDAY.md`.
-4. **Practice the two-minute demo once** on a phone with `npm run dev`, or on a free static deploy of `dist/` if you choose to make one.
-5. **Optional, only if you decide to spend nothing more than free tiers:** to let a partner's own phone
-   sign up live, create free Netlify and Supabase projects, run the two migrations, and set the
-   variables in `.env.example`. For real AI, also add a Claude API key with a spending limit, and set
-   `CLAUDE_MODEL_PARSE` and `CLAUDE_MODEL_WRITE` to the models you chose. These are not hardcoded anywhere.
-
-## Decisions already made (by your delegate, Nov 5)
+## Decisions already made (by your delegate)
+- **Do not merge** pull request https://github.com/LeonardoE20/volunteer-copilot/pull/1. `main` stays the bare
+  starting point until Friday's rules are known. The prototype lives on branch
+  `claude/brave-pasteur-jembvq` and in the two tags.
+- The PR is not being watched.
 - Spec approved. Pitch: lead with chasing the right person and backfilling, plus youth-safe group
   messaging with the advisor included, presented as our understanding to confirm with the partners.
-- Vite + React + TypeScript.
-- Model choice is set only through environment variables.
-- No paid services, no accounts created, no real personal data, nothing sent automatically.
+- Vite + React + TypeScript. Model names are set only through environment variables.
+- No paid services, no accounts or projects created, nothing deployed publicly, no real personal data,
+  nothing sent automatically, no Twilio.
+
+## What is done
+- **Research and design:** `docs/research/`, `docs/WEDGE.md` (the wedge is real but thin), and `docs/SPEC.md`.
+- **Foundation, tag `foundation-v0` = `5e94780`:** scaffold, config, database schema with row-level
+  security, server-only Claude wrapper, validation, demo storage, design tokens, fake seed data.
+- **Rehearsal prototype, tag `rehearsal-full` = `84bf9c6`:** every Must and Should item in the spec.
+  - Paste a note, check and edit the draft roster, publish.
+  - Volunteers sign up from a link with no account.
+  - A live roster with gaps.
+  - **Fill this gap** suggests who to ask and drafts the messages.
+  - Students only ever get a group message with the advisor.
+  - A drop-out or no-show drafts backfill messages right away.
+  - A club contact list and an advisor section.
+  - Nothing is sent automatically.
+- **After `rehearsal-full`, on the branch only:**
+  - Security fixes (`3a2d1da`) and accessibility fixes (`8dc8787`).
+  - **Advisor tap-to-confirm hours link** (`5e83ff3`): the coordinator marks students Attended and sends a
+    private link. The advisor sees names and hours only, and confirms with one tap and a typed name.
+    The coordinator then sees "Confirmed by …".
+  - A **test of the live AI code path** (`d5d28aa`) against a mocked AI service.
+  - `docs/PITCH.md`: a two-minute pitch and a one-page partner handout, laid out by the rubric.
+  - `docs/FRIDAY.md`: the Friday runbook.
+
+## What was tested (final run, Nov 5)
+- **62 automated tests pass** (`npm test`, 6 files). They cover:
+  - the note parser;
+  - the "who to ask" ranking;
+  - the youth-safe rule;
+  - capacity and adults-only checks;
+  - secret-link checks;
+  - sign-up spam limits;
+  - input validation;
+  - the advisor hours link (only attended students, no contact details, old links stop working);
+  - **the real server function with a mocked AI service and an in-memory database**:
+    - malformed, schema-breaking and failed AI replies all fall back safely;
+    - an AI reply that adds links, phone numbers or extra recipients is stripped and ignored;
+    - phone numbers and emails are never sent to the AI;
+    - a wrong coordinator link is refused before any AI call.
+
+  I checked that this last test is real by breaking the link-stripping on purpose: the test failed,
+  then passed again once the code was restored.
+- **A phone-size browser run of the whole flow passes** (`scripts/e2e-demo.cjs`) with no console errors:
+  publish, sign-up, live roster, fill a gap, drop-out backfill, student attended, advisor confirms hours.
+- **Not tested:** the real Netlify, Supabase and Claude services. You asked for no accounts or keys.
+  Their code has only run against stand-ins.
+
+## What still needs work
+1. **Confirm the youth-protection rule with the partners at the 10:45 panel.** Present it as our
+   understanding, not a fact about the Campbell club. Do not quote any no-show statistic.
+2. **Demo mode keeps data on one device**, so a partner's own phone can't sign up for real.
+   "Simulate a volunteer" stands in for the second phone. The advisor link also only works on the same device in demo mode.
+3. **"Adults only" is self-declared** by volunteers.
+4. **No automatic deletion** of contact details after an event. Add it before any real use with minors' data.
+5. **The rule-based parser is simple.** The coordinator always reviews the draft. The real AI is wired in but has not run live.
+6. **Not built:** Twilio texting and evening-before reminders.
+7. Much of the competitor and pain-point research is marked UNVERIFIED (vendor sites and Reddit were blocked).
+
+## Things you must do
+1. Push the tags (top of this page).
+2. Leave the PR unmerged until Friday's rules are known.
+3. On Friday, read the event rules first, then follow `docs/FRIDAY.md`, using `docs/PITCH.md` for the talk and handout.
+4. Practice the demo once on a phone with `npm install` and then `npm run dev`.
+5. Optional, and only on free tiers if you choose: to let a partner's own phone sign up live, create
+   Netlify and Supabase projects, run the three migrations in `supabase/migrations/`, and set the
+   variables in `.env.example`. For real AI, add a Claude API key with a spending limit, and set
+   `CLAUDE_MODEL_PARSE` and `CLAUDE_MODEL_WRITE`.
