@@ -12,7 +12,8 @@ focused on the last 48 hours before an event.
    understanding of Kiwanis youth-protection guidance, still to be confirmed with the club.)
 6. Mark someone as dropped out or a no-show, and backfill messages are drafted right away.
 7. Nothing is sent automatically. The coordinator reviews each message and sends it from their own phone.
-8. Mark students as attended to get a printable service-hours sheet for the advisor.
+8. Mark students as attended, then send the advisor a private link to confirm their service hours with
+   one tap. The advisor sees names and hours only, never contact details.
 
 Built for the Social Good Hackathon (Nov 6 2026, West Valley College), Volunteer Coordination track,
 partner Kiwanis Club of Campbell. Prepared work is listed in `docs/DISCLOSURE.md`.
