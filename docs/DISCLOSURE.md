@@ -12,8 +12,9 @@ It is updated whenever prepared work is added. Judges and organizers may read it
 | Nov 5 2026 | Product spec (design only, no code) | `docs/SPEC.md` | none |
 | Nov 5 2026 | Project instructions, README, decision list | `CLAUDE.md`, `README.md`, `docs/DECISIONS.md` | none |
 
-Not yet prepared: any product code. The generic foundation (`foundation-v0`) and the full practice
-build (`rehearsal-full`) will be listed here, with commit hashes, if and when they are built.
+| Nov 5 2026 | Generic foundation: Vite + React + TypeScript scaffold, Netlify config, Supabase schema with row-level security, Claude API wrapper (server only), shared validation, local demo-mode storage, design tokens, fake seed data, first tests. No event-specific features. | whole repo | `foundation-v0` |
+
+The full practice build (`rehearsal-full`) will be listed here with its commit when it is built.
 
 ## How this was made
 The research and documents were produced with the help of an AI coding assistant (Claude Code),
