@@ -74,7 +74,10 @@ export function mergeWritten(plans: PlannedDraft[], raw: unknown): { drafts: Dra
   const drafts = plans.map(({ ctx, why, ...d }) => {
     let body = byId.get(d.id);
     // For student groups, the wording must make clear the advisor is included.
-    if (body && d.includesAdvisor && ctx.advisorName && !body.includes(ctx.advisorName)) body = undefined;
+    if (body && d.includesAdvisor) {
+      const mentions = /advisor/i.test(body) || (ctx.advisorName && body.includes(ctx.advisorName));
+      if (!mentions) body = undefined;
+    }
     if (body) usedAi = true;
     return { ...d, text: finalizeText(body ?? templateText(ctx, d.recipients, why), ctx.signupUrl) };
   });

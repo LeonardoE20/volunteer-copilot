@@ -140,7 +140,7 @@ export default async (req: Request) => {
         .select('id, slug')
         .single();
       if (error || !ev) return fail(500, 'Could not create the event.');
-      await d.from('shifts').insert(
+      const { error: shiftErr } = await d.from('shifts').insert(
         e.shifts.map((s, i) => ({
           event_id: ev.id,
           role: s.role,
@@ -151,10 +151,14 @@ export default async (req: Request) => {
           position: i,
         })),
       );
-      if (contacts.length) {
-        await d.from('contacts').insert(
-          contacts.map((c) => ({ event_id: ev.id, name: c.name, contact: c.contact, is_student: c.isStudent, past_roles: c.pastRoles })),
-        );
+      const { error: contactErr } = contacts.length
+        ? await d.from('contacts').insert(
+            contacts.map((c) => ({ event_id: ev.id, name: c.name, contact: c.contact, is_student: c.isStudent, past_roles: c.pastRoles })),
+          )
+        : { error: null };
+      if (shiftErr || contactErr) {
+        await d.from('events').delete().eq('id', ev.id); // roll back a half-built event
+        return fail(500, 'Could not create the event.');
       }
       return json(200, { slug: ev.slug, token });
     }
@@ -191,6 +195,9 @@ export default async (req: Request) => {
         const msg = error.message ?? '';
         if (msg.includes('shift_full')) return json(409, { error: 'Sorry, that slot just filled up. Please pick another one.', code: 'shift_full' });
         if (msg.includes('adults_only')) return json(409, { error: 'This slot is for adults only. Please pick another one.', code: 'adults_only' });
+        if (msg.includes('no_students')) return json(409, { error: 'This event is not taking student sign-ups.', code: 'no_students' });
+        if (msg.includes('duplicate')) return json(409, { error: 'You are already signed up for this slot.', code: 'duplicate' });
+        if (msg.includes('too_many')) return json(409, { error: 'You already have 3 slots at this event. Thank you!', code: 'too_many' });
         return fail(400, 'Could not sign up for that slot.');
       }
       return json(200, { signupId: id, removeToken });
@@ -231,6 +238,8 @@ export default async (req: Request) => {
       if (!loaded) return fail(403, 'This coordinator link is not valid.');
       const list = z.array(ContactInput).max(300).safeParse(body.contacts);
       if (!list.success) return fail(400, firstError(list.error));
+      const { count } = await d.from('contacts').select('id', { count: 'exact', head: true }).eq('event_id', loaded.event.id);
+      if ((count ?? 0) + list.data.length > 500) return fail(400, 'This event already has the maximum of 500 contacts.');
       if (list.data.length) {
         await d.from('contacts').insert(
           list.data.map((c) => ({ event_id: loaded.event.id, name: c.name, contact: c.contact, is_student: c.isStudent, past_roles: c.pastRoles })),

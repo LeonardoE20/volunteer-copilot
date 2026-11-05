@@ -65,3 +65,30 @@ describe('LocalBackend', () => {
     ).rejects.toThrow(/phone number or an email/);
   });
 });
+
+describe('security hardening', () => {
+  it('blocks the same person taking more than 3 slots, and duplicate sign-ups', async () => {
+    const b = new LocalBackend(new MemoryStore(), mockAi);
+    const many = { ...event, shifts: Array.from({ length: 5 }, (_, i) => ({ role: `R${i}`, start: '07:00', end: '08:00', needed: 5, adultsOnly: false })) };
+    const { slug } = await b.createEvent({ event: many, advisorContact: '', contacts: [] });
+    const ids = (await b.getPublicEvent(slug))!.shifts.map((s) => s.id);
+    const me = { name: 'A', contact: '+1 (408) 555-0101', isStudent: false };
+    await b.signUp(slug, { ...me, shiftId: ids[0] });
+    await expect(b.signUp(slug, { ...me, contact: '408-555-0101', shiftId: ids[0] })).rejects.toThrow(/already signed up/);
+    await b.signUp(slug, { ...me, shiftId: ids[1] });
+    await b.signUp(slug, { ...me, shiftId: ids[2] });
+    await expect(b.signUp(slug, { ...me, shiftId: ids[3] })).rejects.toThrow(/3 slots/);
+  });
+  it('refuses student sign-ups when the event does not take students', async () => {
+    const b = new LocalBackend(new MemoryStore(), mockAi);
+    const { slug } = await b.createEvent({ event: { ...event, studentsWelcome: false }, advisorContact: '', contacts: [] });
+    const id = (await b.getPublicEvent(slug))!.shifts[0].id;
+    await expect(b.signUp(slug, { shiftId: id, name: 'K', contact: 'k@example.org', isStudent: true })).rejects.toThrow(/not taking student/);
+  });
+  it('rejects shifts that end before they start, and emails that could inject mailto fields', async () => {
+    const b = new LocalBackend(new MemoryStore(), mockAi);
+    const bad = { ...event, shifts: [{ role: 'X', start: '09:00', end: '08:00', needed: 1, adultsOnly: false }] };
+    await expect(b.createEvent({ event: bad, advisorContact: '', contacts: [] })).rejects.toThrow(/after start/);
+    await expect(b.createEvent({ event, advisorContact: 'a@b.co?bcc=x@y.com', contacts: [] })).rejects.toThrow();
+  });
+});

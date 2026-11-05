@@ -54,6 +54,12 @@ export interface LocalAi {
 
 const KEY = 'volunteer-copilot:db:v1';
 
+/** Phones by their last 10 digits, emails lower-cased. Same rule as the database. */
+export const normContact = (c: string) => {
+  const digits = c.replace(/\D/g, '');
+  return c.includes('@') ? c.trim().toLowerCase() : digits.slice(-10);
+};
+
 export class LocalBackend implements Backend {
   readonly mode = 'local' as const;
   constructor(
@@ -140,16 +146,19 @@ export class LocalBackend implements Backend {
     const e = this.get(db, slug);
     const shift = e.event.shifts.find((s) => s.id === input.shiftId);
     if (!shift) throw new BackendError('That slot no longer exists.', 'not_found');
+    if (input.isStudent && !e.event.studentsWelcome) {
+      throw new BackendError('This event is not taking student sign-ups.', 'no_students');
+    }
     if (shift.adultsOnly && input.isStudent) {
       throw new BackendError('This slot is for adults only. Please pick another one.', 'adults_only');
     }
     if (filledFor(shift.id, e.signups) >= shift.needed) {
       throw new BackendError('Sorry, that slot just filled up. Please pick another one.', 'shift_full');
     }
-    const dup = e.signups.find(
-      (s) => s.shiftId === shift.id && s.status === 'confirmed' && s.contact.toLowerCase() === input.contact.toLowerCase(),
-    );
-    if (dup) throw new BackendError('You are already signed up for this slot.', 'duplicate');
+    const norm = normContact(input.contact);
+    const mine = e.signups.filter((s) => s.status === 'confirmed' && normContact(s.contact) === norm);
+    if (mine.some((s) => s.shiftId === shift.id)) throw new BackendError('You are already signed up for this slot.', 'duplicate');
+    if (mine.length >= 3) throw new BackendError('You already have 3 slots at this event. Thank you!', 'too_many');
     const removeToken = newToken();
     const signup = {
       id: newId(),

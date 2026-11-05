@@ -131,3 +131,11 @@ describe('finalizeText', () => {
     expect(t.endsWith(URL)).toBe(true);
   });
 });
+
+describe('finalizeText strips contact details the model might invent', () => {
+  it('removes emails, bare domains and phone numbers', () => {
+    const t = finalizeText('Reply to evil@x.com or bit.ly/abc or call (408) 555-0199 today', URL);
+    expect(t).not.toMatch(/evil|bit\.ly|555-0199/);
+    expect(t.endsWith(URL)).toBe(true);
+  });
+});

@@ -43,9 +43,7 @@ export async function allow(key: string, limit: number, windowSeconds: number, f
 /** Global daily cap on AI calls. */
 export async function allowAi(ip: string): Promise<boolean> {
   const cap = Number(process.env.AI_DAILY_CAP ?? '200') || 200;
-  const [perIp, global] = await Promise.all([
-    allow(`ai:ip:${ip}`, 20, 3600, true),
-    allow('ai:global', cap, 86400, true),
-  ]);
-  return perIp && global;
+  // Per-IP first, so one client hitting its own limit cannot use up the global daily budget.
+  if (!(await allow(`ai:ip:${ip}`, 20, 3600, true))) return false;
+  return allow('ai:global', cap, 86400, true);
 }

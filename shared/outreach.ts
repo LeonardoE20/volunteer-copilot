@@ -117,6 +117,9 @@ export function templateText(ctx: MessageContext, recipients: Recipient[], why: 
 export function finalizeText(body: string, signupUrl: string): string {
   const cleaned = body
     .replace(/https?:\/\/\S+|www\.\S+/gi, '')
+    .replace(/\S+@\S+/g, '')
+    .replace(/\b[\w-]+(?:\.[\w-]+)*\.(?:com|org|net|io|ly|co|me|app|xyz|info|biz|us|link|site)\b\S*/gi, '')
+    .replace(/\+?\d[\d\s().-]{6,}\d/g, '')
     .replace(/[<>]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -212,6 +215,6 @@ export function sendLinks(d: Draft): { sms?: string; email?: string } {
   // A group message is only offered when one channel reaches EVERY recipient, so the advisor
   // can never be silently left off a message to students.
   if (phones.length === d.recipients.length) out.sms = `sms:${phones.join(',')}?&body=${body}`;
-  if (emails.length === d.recipients.length) out.email = `mailto:${emails.join(',')}?subject=${encodeURIComponent('Volunteer slot open')}&body=${body}`;
+  if (emails.length === d.recipients.length) out.email = `mailto:${emails.map(encodeURIComponent).join(',')}?subject=${encodeURIComponent('Volunteer slot open')}&body=${body}`;
   return out;
 }

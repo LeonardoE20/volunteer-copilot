@@ -25,7 +25,7 @@ const text = (max: number) => z.string().transform(clean).pipe(z.string().max(ma
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM (24-hour)');
 
 const PHONE_RE = /^\+?[\d\s().-]{7,20}$/;
-const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+const EMAIL_RE = /^[A-Za-z0-9._+-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 
 export function contactKind(c: string): 'phone' | 'email' | null {
   const v = c.trim();
@@ -45,7 +45,7 @@ export const ParsedShift = z.object({
   end: time,
   needed: z.number().int().min(1).max(LIMITS.maxNeeded),
   adultsOnly: z.boolean().default(false),
-});
+}).refine((s) => s.end > s.start, { message: 'End time must be after start time', path: ['end'] });
 export type ParsedShift = z.infer<typeof ParsedShift>;
 
 export const ParsedEvent = z.object({
