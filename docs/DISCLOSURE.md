@@ -10,7 +10,7 @@ It is updated whenever prepared work is added. Judges and organizers may read it
 | Nov 5 2026 | Market and user research (competitor audit, coordinator pain points, how Kiwanis and Key Club coordinate) | `docs/research/` | none |
 | Nov 5 2026 | Honest assessment of whether the idea is different from existing tools | `docs/WEDGE.md` | none |
 | Nov 5 2026 | Product spec (design only, no code) | `docs/SPEC.md` | none |
-| Nov 5 2026 | Project instructions and README | `CLAUDE.md`, `README.md` | none |
+| Nov 5 2026 | Project instructions, README, decision list | `CLAUDE.md`, `README.md`, `docs/DECISIONS.md` | none |
 
 Not yet prepared: any product code. The generic foundation (`foundation-v0`) and the full practice
 build (`rehearsal-full`) will be listed here, with commit hashes, if and when they are built.
