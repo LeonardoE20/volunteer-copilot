@@ -16,10 +16,9 @@ It is updated whenever prepared work is added. Judges and organizers may read it
 
 | Nov 5 2026 | Full practice build: note parser, sign-up page, live roster with gaps, gap-filling and backfill drafts, youth-safe group messaging, student hours sheet, server function, tests, Friday runbook | whole repo | `rehearsal-full` |
 
-Tag commits: `foundation-v0` = `5e94780`. `rehearsal-full` = the commit that adds this line (see
-`git log`). The tags were created locally but this session's GitHub access could not push tags, so
+Tag commits: `foundation-v0` = `5e94780`. `rehearsal-full` = `84bf9c6`. The tags were created locally but this session's GitHub access could not push tags, so
 they may need pushing by hand (see `docs/DECISIONS.md`). After `rehearsal-full`, Phase 4 fixes
-(security, accessibility) were added on top and are also prepared work.
+(security, accessibility) were added on top in commits `3a2d1da` and `8dc8787`, and are also prepared work.
 
 ## How this was made
 The research and documents were produced with the help of an AI coding assistant (Claude Code),

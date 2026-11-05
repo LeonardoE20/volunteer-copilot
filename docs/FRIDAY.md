@@ -51,7 +51,7 @@ Use demo mode unless live keys were set up. Demo mode keeps data on one device, 
    - Press **Fill this gap** on Syrup/tables. Adults get their own messages. Students get one group message that includes the advisor.
    - Mark the volunteer who just signed up for Griddles as **Dropped out** ("like Tom and his knee in the note"). Backfill messages appear right away, aimed at people who did griddles before.
    - Point out that nothing is sent automatically: the coordinator taps "Open in Messages".
-3. **What we tested (15 s):** 42 automated tests, including "a student is never messaged one-to-one", plus a full browser run of the flow and whatever the partner tried today.
+3. **What we tested (15 s):** 46 automated tests, including "a student is never messaged one-to-one", plus a full browser run of the flow and whatever the partner tried today.
 4. **What still needs work (15 s):** real texting (Twilio), confirming the youth-protection rule with the club, real coordinator interviews, and honesty that SignUpGenius and Golden are free for simple sign-ups. Our difference is the last 48 hours: chasing the right people and backfilling.
 
 Do not quote any no-show statistic.
