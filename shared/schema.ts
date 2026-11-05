@@ -175,4 +175,6 @@ export interface Draft {
   includesAdvisor: boolean;
   text: string;
   reason: string;
+  /** Set when the draft must not be sent (for example, students but no advisor contact). */
+  blocked?: string;
 }
