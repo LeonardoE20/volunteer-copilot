@@ -1,5 +1,5 @@
 // Live backend: every call goes to one Netlify Function (/api/rpc). No keys in the browser.
-import type { ContactInput, CreateEventInput, Draft, OutreachKind, ParsedEvent, PublicEvent, Roster, SignupInput, SignupStatus } from '../../shared/schema';
+import type { AdvisorHours, ContactInput, CreateEventInput, Draft, OutreachKind, ParsedEvent, PublicEvent, Roster, SignupInput, SignupStatus } from '../../shared/schema';
 import { BackendError, type AiSource, type Backend } from './backend';
 
 async function rpc<T>(action: string, payload: Record<string, unknown>): Promise<T> {
@@ -51,6 +51,15 @@ export class RemoteBackend implements Backend {
   }
   async setAdvisor(slug: string, token: string, advisorName: string, advisorContact: string) {
     await rpc('advisor', { slug, token, advisorName, advisorContact });
+  }
+  createAdvisorLink(slug: string, token: string) {
+    return rpc<{ advisorToken: string }>('advisorLink', { slug, token });
+  }
+  async getAdvisorHours(slug: string, advisorToken: string) {
+    return (await rpc<{ hours: AdvisorHours }>('hours', { slug, advisorToken })).hours;
+  }
+  async confirmHours(slug: string, advisorToken: string, signupIds: string[], signedName: string) {
+    await rpc('confirmHours', { slug, advisorToken, signupIds, signedName });
   }
   draftOutreach(slug: string, token: string, shiftId: string, kind: OutreachKind, signupUrl: string) {
     return rpc<{ drafts: Draft[]; source: AiSource }>('draft', { slug, token, shiftId, kind, signupUrl });

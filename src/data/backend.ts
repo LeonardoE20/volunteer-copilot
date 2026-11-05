@@ -10,6 +10,7 @@ import type {
   SignupStatus,
   Draft,
   OutreachKind,
+  AdvisorHours,
 } from '../../shared/schema';
 
 export type AiSource = 'ai' | 'mock';
@@ -25,6 +26,10 @@ export interface Backend {
   setStatus(slug: string, token: string, signupId: string, status: SignupStatus): Promise<void>;
   addContacts(slug: string, token: string, contacts: ContactInput[]): Promise<void>;
   setAdvisor(slug: string, token: string, advisorName: string, advisorContact: string): Promise<void>;
+  /** Make (or replace) the advisor's private link for confirming student hours. */
+  createAdvisorLink(slug: string, token: string): Promise<{ advisorToken: string }>;
+  getAdvisorHours(slug: string, advisorToken: string): Promise<AdvisorHours>;
+  confirmHours(slug: string, advisorToken: string, signupIds: string[], signedName: string): Promise<void>;
   draftOutreach(
     slug: string,
     token: string,

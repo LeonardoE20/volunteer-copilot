@@ -72,5 +72,4 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export const minutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-export const hoursBetween = (start: string, end: string) => Math.max(0, (minutes(end) - minutes(start)) / 60);
+export { hoursBetween } from '../../shared/roster';

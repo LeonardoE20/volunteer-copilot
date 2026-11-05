@@ -4,10 +4,10 @@ import { backend } from '../data';
 import type { AiSource } from '../data/backend';
 import type { Draft, OutreachKind, Roster, Signup, SignupStatus } from '../../shared/schema';
 import { LIMITS } from '../../shared/schema';
-import { filledFor, formatTime, gaps, shiftLabel, totals } from '../../shared/roster';
+import { filledFor, formatTime, gaps, shiftLabel, studentHours, totals } from '../../shared/roster';
 import { isYouthSafe, sendLinks } from '../../shared/outreach';
 import { parseContactList } from '../../shared/contacts';
-import { copyText, errorText, hoursBetween, usePolling, useTitle } from '../lib/util';
+import { copyText, errorText, usePolling, useTitle } from '../lib/util';
 
 const DEMO_PEOPLE = [
   ['Pat Example', '(408) 555-0121', false],
@@ -289,7 +289,7 @@ export function CoordinatorPage() {
 
       <AdvisorSection roster={roster} slug={slug} token={token} onSaved={load} />
       <ContactsSection roster={roster} slug={slug} token={token} onSaved={load} />
-      <HoursSection roster={roster} />
+      <HoursSection roster={roster} slug={slug} token={token} />
 
       <details className="card">
         <summary>Your private coordinator link</summary>
@@ -439,19 +439,29 @@ function ContactsSection({ roster, slug, token, onSaved }: { roster: Roster; slu
   );
 }
 
-function HoursSection({ roster }: { roster: Roster }) {
-  const rows = roster.signups
-    .filter((s) => s.isStudent && s.status === 'attended')
-    .map((s) => {
-      const shift = roster.event.shifts.find((x) => x.id === s.shiftId);
-      return { s, shift, hours: shift ? hoursBetween(shift.start, shift.end) : 0 };
-    });
+function HoursSection({ roster, slug, token }: { roster: Roster; slug: string; token: string }) {
+  const rows = studentHours(roster.event, roster.signups);
+  const [advisorUrl, setAdvisorUrl] = useState('');
+  const [msg, setMsg] = useState('');
+  const total = rows.reduce((n, r) => n + r.hours, 0);
+  const confirmed = rows.filter((r) => r.confirmed).length;
+
+  async function makeLink() {
+    try {
+      const { advisorToken } = await backend.createAdvisorLink(slug, token);
+      setAdvisorUrl(`${location.origin}/h/${slug}#${advisorToken}`);
+      setMsg('Advisor link ready. Any older advisor link stops working.');
+    } catch (e) {
+      setMsg(errorText(e));
+    }
+  }
+
   return (
     <>
       <h2>Student service hours</h2>
-      <div className="card">
+      <div className="card stack">
         {rows.length === 0 ? (
-          <p className="small muted">Mark students as "Attended" and their hours appear here for the advisor to check and sign.</p>
+          <p className="small muted">Mark students as "Attended" and their hours appear here for the advisor to confirm.</p>
         ) : (
           <>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -460,27 +470,57 @@ function HoursSection({ roster }: { roster: Roster }) {
                 <tr>
                   <th scope="col" align="left">Student</th>
                   <th scope="col" align="left">Role</th>
-                  <th scope="col" align="left">Time</th>
                   <th scope="col" align="right">Hours</th>
+                  <th scope="col" align="left">Advisor</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ s, shift, hours }) => (
-                  <tr key={s.id}>
-                    <td>{s.name}</td>
-                    <td>{shift?.role}</td>
-                    <td>{shift && `${formatTime(shift.start)}–${formatTime(shift.end)}`}</td>
-                    <td align="right">{hours.toFixed(1)}</td>
+                {rows.map((r) => (
+                  <tr key={r.signupId}>
+                    <td>{r.name}</td>
+                    <td>
+                      {r.role} <span className="small muted">{formatTime(r.start)}–{formatTime(r.end)}</span>
+                    </td>
+                    <td align="right">{r.hours.toFixed(1)}</td>
+                    <td>
+                      {r.confirmed ? (
+                        <span className="badge ok">Confirmed by {r.confirmed.by}</span>
+                      ) : (
+                        <span className="badge">Not yet confirmed</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <p className="small">
-              {roster.event.title}, {roster.event.date}. Advisor: {roster.event.advisorName || '(not set)'}. Signature: ____________
+              {total.toFixed(1)} hours for {rows.length} student{rows.length === 1 ? '' : 's'}. {confirmed} of {rows.length} confirmed by
+              the advisor.
             </p>
-            <button className="secondary" onClick={() => window.print()}>
-              Print for the advisor
-            </button>
+            <div className="row">
+              <button onClick={makeLink}>Get advisor confirm link</button>
+              <button className="secondary" onClick={() => window.print()}>
+                Print
+              </button>
+            </div>
+            {advisorUrl && (
+              <div>
+                <label htmlFor="adv-url">Send this private link to {roster.event.advisorName || 'the advisor'}</label>
+                <div className="row">
+                  <input id="adv-url" type="text" readOnly value={advisorUrl} style={{ flex: '1 1 240px' }} onFocus={(e) => e.target.select()} />
+                  <button className="secondary" onClick={async () => setMsg((await copyText(advisorUrl)) ? 'Link copied.' : 'Copy failed; select the link and copy it.')}>
+                    Copy
+                  </button>
+                  <a className="btn secondary" href={advisorUrl} target="_blank" rel="noopener">
+                    Open
+                  </a>
+                </div>
+                <p className="small muted">The advisor sees students' names and hours only, never phone numbers or emails.</p>
+              </div>
+            )}
+            <p className="small" role="status">
+              {msg}
+            </p>
           </>
         )}
       </div>

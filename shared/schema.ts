@@ -90,7 +90,31 @@ export interface Signup {
   isStudent: boolean;
   status: SignupStatus;
   createdAt: string;
+  /** Set when the advisor confirms this student's service hours. */
+  hoursConfirmed?: { by: string; at: string };
 }
+
+/** What the advisor's confirm link shows: students' names and hours only, never contact details. */
+export interface HoursRow {
+  signupId: string;
+  name: string;
+  role: string;
+  start: string;
+  end: string;
+  hours: number;
+  confirmed?: { by: string; at: string };
+}
+export interface AdvisorHours {
+  title: string;
+  date: string;
+  advisorName: string;
+  rows: HoursRow[];
+}
+
+export const ConfirmHoursInput = z.object({
+  signupIds: z.array(z.string().min(1).max(64)).min(1).max(200),
+  signedName: text(LIMITS.nameChars).pipe(z.string().min(2, 'Type your name to sign')),
+});
 
 export interface Contact {
   id: string;

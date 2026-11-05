@@ -1,5 +1,5 @@
 // Pure roster helpers shared by both backends.
-import type { EventRecord, PublicEvent, Shift, Signup } from './schema';
+import type { EventRecord, HoursRow, PublicEvent, Shift, Signup } from './schema';
 
 /** A signup "counts" toward a shift while confirmed or attended. */
 export const counts = (s: Signup) => s.status === 'confirmed' || s.status === 'attended';
@@ -41,6 +41,20 @@ export function toPublic(event: EventRecord, signups: Signup[]): PublicEvent {
     studentsWelcome: event.studentsWelcome,
     shifts: event.shifts.map((s) => ({ ...s, filled: filledFor(s.id, signups) })),
   };
+}
+
+const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+export const hoursBetween = (start: string, end: string) => Math.max(0, (mins(end) - mins(start)) / 60);
+
+/** Students marked attended, with their hours. This is all the advisor ever sees. */
+export function studentHours(event: EventRecord, signups: Signup[]): HoursRow[] {
+  return signups
+    .filter((s) => s.isStudent && s.status === 'attended')
+    .flatMap((s) => {
+      const shift = event.shifts.find((x) => x.id === s.shiftId);
+      if (!shift) return [];
+      return [{ signupId: s.id, name: s.name, role: shift.role, start: shift.start, end: shift.end, hours: hoursBetween(shift.start, shift.end), confirmed: s.hoursConfirmed }];
+    });
 }
 
 /** "07:00" -> "7:00 AM" */

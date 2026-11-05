@@ -3,6 +3,7 @@ import { backend } from './data';
 import { CreatePage } from './pages/CreatePage';
 import { RemovePage, SignupPage } from './pages/SignupPage';
 import { CoordinatorPage } from './pages/CoordinatorPage';
+import { AdvisorPage } from './pages/AdvisorPage';
 
 function NotFound() {
   return (
@@ -37,6 +38,7 @@ export function App() {
           <Route path="/e/:slug" element={<SignupPage />} />
           <Route path="/e/:slug/remove" element={<RemovePage />} />
           <Route path="/c/:slug" element={<CoordinatorPage />} />
+          <Route path="/h/:slug" element={<AdvisorPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import {
   AdvisorInput,
+  ConfirmHoursInput,
   ContactInput,
   CreateEventInput,
   NoteInput,
@@ -15,7 +16,7 @@ import {
   type Signup,
 } from '../../shared/schema';
 import { newSlug, newToken, safeEqual, sha256Hex } from '../../shared/ids';
-import { toPublic } from '../../shared/roster';
+import { studentHours, toPublic } from '../../shared/roster';
 import { ruleBasedParse } from '../../shared/parser';
 import { planOutreach, withTemplateText } from '../../shared/outreach';
 import { PARSE_SYSTEM, WRITE_SYSTEM, mergeWritten, parseUserPrompt, validateParsed, writeUserPrompt } from '../../shared/prompts';
@@ -35,7 +36,7 @@ async function loadEvent(slug: string) {
   if (!ev) return null;
   const [{ data: shifts }, { data: signups }] = await Promise.all([
     d.from('shifts').select('*').eq('event_id', ev.id).order('position'),
-    d.from('signups').select('id, shift_id, name, contact, is_student, status, created_at').eq('event_id', ev.id),
+    d.from('signups').select('id, shift_id, name, contact, is_student, status, created_at, hours_confirmed_by, hours_confirmed_at').eq('event_id', ev.id),
   ]);
   const event: EventRecord = {
     id: ev.id,
@@ -66,8 +67,9 @@ async function loadEvent(slug: string) {
     isStudent: s.is_student as boolean,
     status: s.status as Signup['status'],
     createdAt: s.created_at as string,
+    hoursConfirmed: s.hours_confirmed_by ? { by: s.hours_confirmed_by as string, at: s.hours_confirmed_at as string } : undefined,
   }));
-  return { event, signups: list, tokenHash: ev.coordinator_token_hash as string };
+  return { event, signups: list, tokenHash: ev.coordinator_token_hash as string, advisorTokenHash: (ev.advisor_token_hash as string | null) ?? null };
 }
 
 async function authed(slug: unknown, token: unknown) {
@@ -77,6 +79,16 @@ async function authed(slug: unknown, token: unknown) {
   const loaded = await loadEvent(s.data);
   if (!loaded) return null;
   if (!safeEqual(await sha256Hex(t.data), loaded.tokenHash)) return null;
+  return loaded;
+}
+
+async function advisorAuthed(slug: unknown, advisorToken: unknown) {
+  const s = Slug.safeParse(slug);
+  const t = Token.safeParse(advisorToken);
+  if (!s.success || !t.success) return null;
+  const loaded = await loadEvent(s.data);
+  if (!loaded || !loaded.advisorTokenHash) return null;
+  if (!safeEqual(await sha256Hex(t.data), loaded.advisorTokenHash)) return null;
   return loaded;
 }
 
@@ -229,7 +241,8 @@ export default async (req: Request) => {
       const id = Id.safeParse(body.signupId);
       const st = z.enum(['confirmed', 'dropped', 'no_show', 'attended']).safeParse(body.status);
       if (!id.success || !st.success) return fail(400, 'Bad request');
-      await d.from('signups').update({ status: st.data }).eq('id', id.data).eq('event_id', loaded.event.id);
+      const patch = st.data === 'attended' ? { status: st.data } : { status: st.data, hours_confirmed_by: null, hours_confirmed_at: null };
+      await d.from('signups').update(patch).eq('id', id.data).eq('event_id', loaded.event.id);
       return json(200, { ok: true });
     }
 
@@ -254,6 +267,36 @@ export default async (req: Request) => {
       const a = AdvisorInput.safeParse({ advisorName: body.advisorName, advisorContact: body.advisorContact });
       if (!a.success) return fail(400, firstError(a.error));
       await d.from('events').update({ advisor_name: a.data.advisorName, advisor_contact: a.data.advisorContact }).eq('id', loaded.event.id);
+      return json(200, { ok: true });
+    }
+
+    case 'advisorLink': {
+      const loaded = await authed(body.slug, body.token);
+      if (!loaded) return fail(403, 'This coordinator link is not valid.');
+      const advisorToken = newToken();
+      await d.from('events').update({ advisor_token_hash: await sha256Hex(advisorToken) }).eq('id', loaded.event.id);
+      return json(200, { advisorToken });
+    }
+
+    case 'hours': {
+      const loaded = await advisorAuthed(body.slug, body.advisorToken);
+      if (!loaded) return fail(403, 'This advisor link is not valid. Ask the coordinator for a new one.');
+      const e = loaded.event;
+      return json(200, { hours: { title: e.title, date: e.date, advisorName: e.advisorName, rows: studentHours(e, loaded.signups) } });
+    }
+
+    case 'confirmHours': {
+      const loaded = await advisorAuthed(body.slug, body.advisorToken);
+      if (!loaded) return fail(403, 'This advisor link is not valid. Ask the coordinator for a new one.');
+      const c = ConfirmHoursInput.safeParse({ signupIds: body.signupIds, signedName: body.signedName });
+      if (!c.success) return fail(400, firstError(c.error));
+      const allowed = new Set(studentHours(loaded.event, loaded.signups).map((r) => r.signupId));
+      if (c.data.signupIds.some((id) => !allowed.has(id))) return fail(400, 'Only attended students can be confirmed.');
+      await d
+        .from('signups')
+        .update({ hours_confirmed_by: c.data.signedName, hours_confirmed_at: new Date().toISOString() })
+        .in('id', c.data.signupIds)
+        .eq('event_id', loaded.event.id);
       return json(200, { ok: true });
     }
 

@@ -3,6 +3,8 @@
 // so the demo behaves like the real thing.
 import {
   AdvisorInput,
+  ConfirmHoursInput,
+  type AdvisorHours,
   ContactInput,
   CreateEventInput,
   SignupInput,
@@ -17,12 +19,13 @@ import {
   type SignupStatus,
 } from '../../shared/schema';
 import { newId, newSlug, newToken, safeEqual, sha256Hex } from '../../shared/ids';
-import { filledFor, toPublic } from '../../shared/roster';
+import { filledFor, studentHours, toPublic } from '../../shared/roster';
 import { BackendError, type AiSource, type Backend } from './backend';
 
 interface StoredEvent {
   event: EventRecord;
   tokenHash: string;
+  advisorTokenHash?: string;
   signups: (Signup & { removeHash: string })[];
   contacts: Contact[];
 }
@@ -199,6 +202,7 @@ export class LocalBackend implements Backend {
     const s = e.signups.find((x) => x.id === signupId);
     if (!s) throw new BackendError('Signup not found.', 'not_found');
     s.status = status;
+    if (status !== 'attended') delete s.hoursConfirmed;
     this.save(db);
   }
 
@@ -222,6 +226,45 @@ export class LocalBackend implements Backend {
     await this.auth(e, token);
     e.event.advisorName = parsed.data.advisorName;
     e.event.advisorContact = parsed.data.advisorContact;
+    this.save(db);
+  }
+
+  private async advisorAuth(e: StoredEvent, advisorToken: string) {
+    if (!e.advisorTokenHash || !safeEqual(await sha256Hex(advisorToken), e.advisorTokenHash)) {
+      throw new BackendError('This advisor link is not valid. Ask the coordinator for a new one.', 'forbidden');
+    }
+  }
+
+  async createAdvisorLink(slug: string, token: string) {
+    const db = this.load();
+    const e = this.get(db, slug);
+    await this.auth(e, token);
+    const advisorToken = newToken();
+    e.advisorTokenHash = await sha256Hex(advisorToken); // replaces any older link
+    this.save(db);
+    return { advisorToken };
+  }
+
+  async getAdvisorHours(slug: string, advisorToken: string): Promise<AdvisorHours> {
+    const e = this.get(this.load(), slug);
+    await this.advisorAuth(e, advisorToken);
+    return { title: e.event.title, date: e.event.date, advisorName: e.event.advisorName, rows: studentHours(e.event, e.signups) };
+  }
+
+  async confirmHours(slug: string, advisorToken: string, signupIds: string[], signedName: string) {
+    const parsed = ConfirmHoursInput.safeParse({ signupIds, signedName });
+    if (!parsed.success) throw new BackendError(firstError(parsed.error), 'invalid');
+    const db = this.load();
+    const e = this.get(db, slug);
+    await this.advisorAuth(e, advisorToken);
+    const allowed = new Set(studentHours(e.event, e.signups).map((r) => r.signupId));
+    const at = new Date().toISOString();
+    for (const id of parsed.data.signupIds) {
+      if (!allowed.has(id)) throw new BackendError('Only attended students can be confirmed.', 'invalid');
+    }
+    for (const s of e.signups) {
+      if (parsed.data.signupIds.includes(s.id)) s.hoursConfirmed = { by: parsed.data.signedName, at };
+    }
     this.save(db);
   }
 
