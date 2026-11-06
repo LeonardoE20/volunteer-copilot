@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { DemoVolunteerApp } from './demo.ts';
+import type { Event, Shift } from '../../../contracts/volunteer-contract.ts';
+
+const now = () => Date.parse('2026-11-06T20:00:00Z');
+const make = () => new DemoVolunteerApp({ storage: null, now });
+test('YES and repeated form submission preserve event scope and never fill capacity', async () => {
+  const api = make(); const [event, other] = await api.listEvents();
+  const before = await api.getEventWorkspace(event.id);
+  const participant = before.participants.find(item => item.status === 'invited')!;
+  const token = await api.simulateYES(participant.id);
+  assert.equal(await api.simulateYES(participant.id), token);
+  const form = await api.loadSignupForm(token);
+  const input = { preferredShiftIds: [form.shifts[0].id], availability: [{ startsAt: event.startsAt, endsAt: event.endsAt }] };
+  await api.submitSignupForm(token, input); await api.submitSignupForm(token, input);
+  const after = await api.getEventWorkspace(event.id);
+  assert.equal(after.coverage.confirmed, before.coverage.confirmed);
+  assert.equal(after.participants.length, before.participants.length);
+  assert.equal(after.participants.find(item => item.id === participant.id)?.status, 'details_submitted');
+  assert.equal((await api.getEventWorkspace(other.id)).coverage.confirmed, 6);
+});
+test('dispatch is idempotent, excludes opt-outs, and never fabricates sent status', async () => {
+  const api = make(); const event = (await api.listEvents())[0]; const workspace = await api.getEventWorkspace(event.id);
+  const draft = await api.createMessageDraft({ eventId: event.id, purpose: 'interest', participantIds: workspace.participants.map(item => item.id), body: 'Sample invitation', timing: { kind: 'now' } });
+  assert.equal(draft.excluded?.length, 1);
+  const receipt = await api.dispatchMessage(draft.id);
+  assert.deepEqual(await api.dispatchMessage(draft.id), receipt);
+  const deliveries = await api.getDeliveries(receipt.campaignId);
+  assert.equal(deliveries.length, 17);
+  assert.ok(deliveries.every(item => item.status === 'queued' && !item.providerMessageId));
+});
+test('capacity and cross-event overlap are enforced without changing failed assignments', async () => {
+  const api = make();
+  const input: Omit<Event, 'id'> = { title: 'Sample concurrent event', type: 'Test', location: 'Sample hall', startsAt: '2026-11-14T15:00:00-08:00', endsAt: '2026-11-14T20:00:00-08:00', timeZone: 'America/Los_Angeles', status: 'published' };
+  const shifts: Omit<Shift, 'id' | 'eventId'>[] = [{ role: 'Cook', startsAt: input.startsAt, endsAt: input.endsAt, capacity: 1 }];
+  const event = await api.createEvent(input, shifts);
+  const volunteers = await api.listVolunteers();
+  const participants = await api.addEventVolunteers(event.id, volunteers.slice(0, 3).map(item => item.id), 'primary');
+  const shift = (await api.getEventWorkspace(event.id)).shifts[0];
+  for (const participant of participants) await api.submitSignupForm(api.getDemoSignupToken(participant.id), { preferredShiftIds: [shift.id], availability: [{ startsAt: event.startsAt, endsAt: event.endsAt }] });
+  await assert.rejects(api.confirmAssignment(event.id, participants[0].id, shift.id), /overlapping/);
+  const original = await api.getEventWorkspace('sample-event-14');
+  for (const participant of original.participants.filter(item => volunteers.slice(0, 3).some(v => v.id === item.volunteerId))) await api.cancelParticipation(original.event.id, participant.id);
+  await api.confirmAssignment(event.id, participants[0].id, shift.id);
+  await assert.rejects(api.confirmAssignment(event.id, participants[1].id, shift.id), /full/);
+  assert.equal((await api.getEventWorkspace(event.id)).coverage.confirmed, 1);
+});
+test('past reminder times and invalid/cross-event forms are rejected', async () => {
+  const api = make(); const [event, other] = await api.listEvents(); const workspace = await api.getEventWorkspace(event.id);
+  await assert.rejects(api.createMessageDraft({ eventId: event.id, purpose: 'reminder', participantIds: [workspace.participants[0].id], body: 'Sample', timing: { kind: 'at', at: '2026-11-01T10:00:00-08:00' } }), /already passed/);
+  await assert.rejects(api.loadSignupForm('not-a-token'), /invalid/);
+  const otherShift = (await api.getEventWorkspace(other.id)).shifts[0];
+  await assert.rejects(api.submitSignupForm(api.getDemoSignupToken(workspace.participants[0].id), { preferredShiftIds: [otherShift.id], availability: [{ startsAt: event.startsAt, endsAt: event.endsAt }] }), /belonging to this event/);
+});
+test('browser storage restores demo state; failed storage stays usable', async () => {
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) || null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+  const first = new DemoVolunteerApp({ storage, now });
+  await first.registerVolunteer({ name: 'Sample New Person', phone: '+12025550199', preferredRoles: ['Runner'], textOptIn: true });
+  const restored = new DemoVolunteerApp({ storage, now });
+  assert.equal((await restored.listVolunteers()).length, 19);
+  const blocked = new DemoVolunteerApp({ storage: { getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); }, removeItem() {} }, now });
+  assert.equal((await blocked.listEvents()).length, 2);
+});
+test('a reminder that becomes overdue while being reviewed is not silently queued', async () => {
+  let clock = now();
+  const api = new DemoVolunteerApp({ storage: null, now: () => clock });
+  const event = (await api.listEvents())[0];
+  const participant = (await api.getEventWorkspace(event.id)).participants[0];
+  const draft = await api.createMessageDraft({ eventId: event.id, participantIds: [participant.id], purpose: 'reminder', body: 'Sample reminder', timing: { kind: 'at', at: new Date(clock + 60_000).toISOString() } });
+  clock += 120_000;
+  await assert.rejects(api.dispatchMessage(draft.id), /already passed/);
+});
+test('two open tabs observe form changes and refresh before sequential writes', async () => {
+  const values = new Map<string, string>();
+  const storage = { getItem: (key: string) => values.get(key) || null, setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
+  const dashboard = new DemoVolunteerApp({ storage, now });
+  const formTab = new DemoVolunteerApp({ storage, now });
+  const event = (await dashboard.listEvents())[0];
+  const workspace = await dashboard.getEventWorkspace(event.id);
+  const participant = workspace.participants.find(item => item.status === 'invited')!;
+  const token = await dashboard.simulateYES(participant.id);
+  const form = await formTab.loadSignupForm(token);
+  await formTab.submitSignupForm(token, { preferredShiftIds: [form.shifts[0].id], availability: [{ startsAt: event.startsAt, endsAt: event.endsAt }] });
+  const updated = await dashboard.getEventWorkspace(event.id);
+  assert.equal(updated.participants.find(item => item.id === participant.id)?.status, 'details_submitted');
+  assert.equal(updated.coverage.confirmed, workspace.coverage.confirmed);
+  await dashboard.registerVolunteer({ name: 'First Sample Contact', phone: '+12025550198', preferredRoles: ['Cook'], textOptIn: true });
+  await formTab.registerVolunteer({ name: 'Second Sample Contact', phone: '+12025550199', preferredRoles: ['Cleaner'], textOptIn: true });
+  assert.equal((await dashboard.listVolunteers()).length, 20);
+});

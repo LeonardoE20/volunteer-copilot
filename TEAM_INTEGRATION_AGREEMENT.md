@@ -77,7 +77,7 @@ Preserve any existing blocked-recipient or advisor/group handling if reusing tha
 
 ## 4. Shared data vocabulary
 
-The reference types are in [`../contracts/volunteer-contract.ts`](../contracts/volunteer-contract.ts). They describe exchanged data, not database tables or a required framework.
+The reference types are in [`contracts/volunteer-contract.ts`](contracts/volunteer-contract.ts). They describe exchanged data, not database tables or a required framework.
 
 | Record | Minimum information |
 | --- | --- |
