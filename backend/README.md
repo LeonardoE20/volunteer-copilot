@@ -22,6 +22,7 @@ fastapi dev app/main.py
 - Health check: http://localhost:8000/api/v1/health
 - Web search: http://localhost:8000/api/v1/search?q=volunteer+scheduling&max_results=3
 - Page fetch: http://localhost:8000/api/v1/fetch?url=https://example.com
+- Users, events and roles: http://localhost:8000/api/v1/users, `/events`, `/events/{id}/roles`
 - Interactive docs: http://localhost:8000/docs (every parameter below is documented and testable there)
 
 ## Web search and page fetch
@@ -67,6 +68,34 @@ pinned below 0.2.
 
 Keenable errors map to `400` (bad arguments, such as an unparseable date), `429` (rate limited),
 `503` (Keenable unreachable) and `502` (anything else, such as `402` out of credits).
+
+## Users, events and roles
+
+These endpoints have no authentication yet: anyone who can reach the API can read and change
+every user's email and phone. Add auth before exposing the API beyond local development.
+
+| Method | Path | Does |
+| --- | --- | --- |
+| `GET` | `/users` | List users by name. `limit` (1 to 500, default 100) and `offset` page through them |
+| `POST` | `/users` | Create a user: `name`, `email`, optional `phone`. `409` if the email is taken, ignoring case |
+| `GET` `PATCH` `DELETE` | `/users/{user_id}` | Read, update or delete a user. Deleting removes their signups |
+| `GET` | `/events` | List events by `starts_at`, paged like `/users` |
+| `POST` | `/events` | Create an event: `title`, `starts_at`, `ends_at`, optional `description` and `location` |
+| `GET` `PATCH` `DELETE` | `/events/{event_id}` | Read, update or delete an event. Deleting removes its roles and their signups |
+| `GET` | `/events/{event_id}/roles` | List an event's roles by `starts_at`, then `name` |
+| `POST` | `/events/{event_id}/roles` | Create a role at the event: `name`, `slots_needed`, `starts_at`, `ends_at` |
+| `GET` `PATCH` `DELETE` | `/roles/{role_id}` | Read, update or delete a role. Deleting removes its signups |
+
+`POST` returns `201` with the new record, `DELETE` returns `204`, and an unknown ID returns `404`.
+
+- `PATCH` changes only the fields you send. Send `null` to clear `phone`, `description` or
+  `location`; other fields can't be null. A role can't move to another event.
+- Text is trimmed, and a blank string is rejected with `422`.
+- Times need a UTC offset, such as `2026-12-05T09:00:00-08:00` or `2026-12-05T17:00:00Z`.
+  Responses give the same instant in the database's time zone, which is UTC on Supabase.
+- `ends_at` must be after `starts_at`. For `PATCH`, this is checked after merging your changes, so
+  moving `starts_at` past the stored `ends_at` is rejected. `slots_needed` must be at least 1.
+- A role's times don't have to fall inside its event's times, so a setup crew can start early.
 
 ## Database
 
@@ -136,6 +165,15 @@ ruff check .
 ruff format .
 ```
 
+The user, event and role tests need Postgres and are skipped unless `TEST_DATABASE_URL` is set.
+Point it at a database used only for tests: they drop and recreate its tables from the models,
+and empty them after each test. With the Supabase CLI's local database:
+
+```sh
+psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -c "create database volunteer_copilot_test"
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/volunteer_copilot_test pytest
+```
+
 ## Layout
 
 ```
@@ -143,8 +181,9 @@ app/
   main.py           # app factory, middleware, router mounting
   core/config.py    # settings loaded from env / .env
   api/router.py     # aggregates route modules
-  api/deps.py       # shared dependencies (Keenable client, database session)
+  api/deps.py       # shared dependencies (Keenable client, database session, record loaders)
   api/errors.py     # maps Keenable errors to HTTP statuses
+  api/schemas.py    # request field types and checks shared by the CRUD routes
   api/routes/       # one module per resource
   db/               # declarative Base, engine and session factory
   models/           # SQLAlchemy models
