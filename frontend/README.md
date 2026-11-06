@@ -49,7 +49,7 @@ Restart `npm run dev` after changing these values. Start the existing backend an
 
 Screens consume `VolunteerApp` from `../../contracts/volunteer-contract.ts`. `src/data/index.ts` selects the persistent demo adapter or `HttpVolunteerApp` according to `VITE_DATA_MODE`. A failed real request never falls back to sample data.
 
-Integrated against `main` at `b4e257f`:
+Integrated against the current backend:
 
 | Frontend action | Existing backend route |
 | --- | --- |
@@ -57,22 +57,27 @@ Integrated against `main` at `b4e257f`:
 | Create event and starter roles | `POST /api/v1/events`, then `POST /api/v1/events/{id}/roles` |
 | Read role capacity | `GET /api/v1/events/{id}/roles` |
 | Contact directory | Paginated `GET /api/v1/users` |
-| Volunteer directory signup | `POST /api/v1/users` with name, email, and phone |
+| Volunteer directory signup | `POST /api/v1/users` with name, email, phone, text permission, and role preferences |
+| Event roster | `GET /api/v1/events/{id}/workspace`, `POST /api/v1/events/{id}/participations` |
+| Message draft and dispatch | `POST /api/v1/events/{id}/drafts`, `POST /api/v1/drafts/{id}/dispatch` |
+| Delivery results | `GET /api/v1/drafts/{id}/deliveries` |
+| Public event form | `GET` and `POST /api/v1/forms/{token}` |
+| Confirm or cancel | `POST /api/v1/participations/{id}/confirm`, `POST /api/v1/participations/{id}/cancel` |
 
-Email is required in connected registration. Preferences and texting permission are not collected there because the current user API cannot persist them. Connected mode labels contacts as directory records, not event participants.
+Email is required in connected registration. Text permission and role preferences are saved on the volunteer. Event membership is a participation record, not a row in the contact directory.
 
-The current service does not expose participation, public event forms, roster counts, assignments, campaign dispatch, or scheduling routes. Those controls and demo reply helpers are hidden/disabled in connected mode; unknown counts are displayed as unavailable. The Chert webhook and Python send adapter remain server-side; the frontend never calls Chert directly. The full local workflow remains available in clearly labeled demo mode.
+Connected mode uses the backend for the roster, message drafts, dispatch, public forms, and assignment confirmation. The Chert webhook and Python send adapter remain server-side; the frontend never calls Chert directly. Demo mode still keeps its own sample data in this browser and labels simulated sends.
 
 Event creation currently requires multiple writes. If a role fails after the event is created, the adapter reports the created event ID and asks the coordinator to refresh/inspect it; it does not delete records or automatically create another event.
 
 ## Next integration boundaries
 
 - IDs are opaque strings. The HTTP adapter maps `Role.name/slots_needed` to `Shift.role/capacity` and snake_case timestamps to the reference DTO fields.
-- The backend does not persist event type, IANA timezone, or lifecycle state. Connected mode uses a generic event label, configured timezone, and a display-only date-based lifecycle; it hides the unsupported event-type input.
-- Existing Signup rows alone do not encode invited/interested/standby/form status. B supplies that application lifecycle behind the interface.
-- Coordinator authentication and public form token validation belong to the connected adapter/backend. Demo tokens are deliberately fake; never use their format for production authorization.
-- The adapter normalizes FastAPI errors, including 422 field errors, without changing the backend's response envelope.
-- As B publishes workflow routes, implement them in the HTTP adapter and enable the corresponding capability in `connection`. Keep backend authorization, capacity checks, webhook handling, and scheduling authoritative.
+- The backend stores event type, IANA timezone, and lifecycle (`draft`, `published`, `completed`, `cancelled`). An event whose end time has passed is shown as completed.
+- Participation status is `not_invited` through `confirmed`, plus `declined` and `cancelled`. The old `signups` table is not the roster.
+- Coordinator authentication is not in place yet. Public form links are unguessable tokens, not demo tokens.
+- The adapter normalizes FastAPI errors, including 422 field errors and `{detail: {code, message, retryable}}`, without changing the Keenable error envelope.
+- Capacity checks, webhook handling, and reminder scheduling stay on the server. `POST /api/v1/jobs/dispatch-due` sends reminders whose time has arrived.
 
 Kivo does not send messages or change assignments. Chert/model/database secrets belong on the server. No deployment or real Chert send is performed by installing/building the frontend.
 

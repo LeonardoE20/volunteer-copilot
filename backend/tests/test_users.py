@@ -44,7 +44,10 @@ def test_email_must_be_unique_ignoring_case(client: TestClient) -> None:
     client.post("/api/v1/users", json=ANN)
     other = client.post("/api/v1/users", json={"name": "Bo", "email": "bo@example.com"}).json()
 
-    duplicate = client.post("/api/v1/users", json={**ANN, "email": "ANN@example.com"})
+    duplicate = client.post(
+        "/api/v1/users",
+        json={**ANN, "email": "ANN@example.com", "phone": "+15105550199"},
+    )
     assert duplicate.status_code == 409
     assert duplicate.json() == {"detail": "A user with this email already exists"}
 

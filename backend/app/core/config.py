@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     chert_signing_secret: str | None = None
     # Secret of the Chert webhook subscription. The reply webhook refuses events until it is set.
     chert_webhook_secret: str | None = None
+    # Public form links texted to volunteers. No coordinator credential belongs in this URL.
+    public_form_base_url: str = "http://localhost:8000/api/v1/forms"
     # The default is the Supabase CLI's local database (`supabase start`).
     database_url: str = "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
 

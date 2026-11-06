@@ -1,12 +1,23 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Query
 from fastapi.exceptions import RequestValidationError
-from pydantic import StringConstraints
+from pydantic import BaseModel, StringConstraints, field_serializer
 
 # Surrounding whitespace is dropped, and a blank string is rejected. Send null to clear a field.
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+class UtcModel(BaseModel):
+    """Serialize every timestamp in UTC so a later read matches the write response."""
+
+    @field_serializer("*", when_used="json")
+    def _datetimes_as_utc(self, value: object) -> object:
+        if isinstance(value, datetime):
+            return value.astimezone(UTC)
+        return value
+
 
 Limit = Annotated[int, Query(ge=1, le=500)]
 Offset = Annotated[int, Query(ge=0)]

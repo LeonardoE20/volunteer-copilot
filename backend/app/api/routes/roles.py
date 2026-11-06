@@ -6,7 +6,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, PositiveInt, field_va
 from sqlalchemy import select
 
 from app.api.deps import EventDep, RoleDep, SessionDep
-from app.api.schemas import Text, check_ends_after_start, reject_null
+from app.api.schemas import Text, UtcModel, check_ends_after_start, reject_null
 from app.models import Role
 
 # Listing and creating go through the event (/events/{id}/roles); a role is then addressed by its
@@ -30,7 +30,7 @@ class RoleUpdate(BaseModel):
     _not_null = field_validator("name", "slots_needed", "starts_at", "ends_at")(reject_null)
 
 
-class RoleRead(BaseModel):
+class RoleRead(UtcModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID

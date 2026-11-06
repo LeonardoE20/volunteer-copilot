@@ -5,8 +5,10 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models import Event, Role, User
-from app.services.chert import ChertClient, InboundHandler, log_inbound
+from app.services.chert import ChertClient, InboundHandler, InboundMessage
+from app.services.coordination import handle_reply
 from app.services.keenable import KeenableClient
 
 
@@ -18,9 +20,31 @@ def get_chert(request: Request) -> ChertClient:
     return request.app.state.chert
 
 
-def get_inbound_handler() -> InboundHandler:
-    # Replace with the core service's reply handling (opt-outs, YES to form link).
-    return log_inbound
+async def session_for(request: Request) -> AsyncIterator[AsyncSession]:
+    """Use the request session, including the test override, without opening one early."""
+    override = request.app.dependency_overrides.get(get_session)
+    if override is not None:
+        async for session in override():
+            yield session
+        return
+    async with request.app.state.sessionmaker() as session:
+        yield session
+
+
+def get_inbound_handler(request: Request) -> InboundHandler:
+    async def handle(message: InboundMessage) -> None:
+        chert_override = request.app.dependency_overrides.get(get_chert)
+        chert = chert_override() if chert_override else request.app.state.chert
+        async for session in session_for(request):
+            await handle_reply(
+                session,
+                chert,
+                message,
+                form_base=get_settings().public_form_base_url,
+            )
+            await session.commit()
+
+    return handle
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:

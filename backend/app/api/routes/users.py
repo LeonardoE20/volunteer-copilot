@@ -3,39 +3,55 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, status
 from psycopg.errors import UniqueViolation
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import SessionDep, UserDep
-from app.api.schemas import Limit, Offset, Text, reject_null
+from app.api.schemas import Limit, Offset, Text, UtcModel, reject_null
 from app.models import User
+from app.services.phones import normalize_phone
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _phone(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return normalize_phone(value)
 
 
 class UserCreate(BaseModel):
     name: Text
     email: EmailStr
     phone: Text | None = None
+    text_opt_in: bool = True
+    role_preferences: list[Text] = Field(default_factory=list)
+
+    _phone = field_validator("phone")(_phone)
 
 
 class UserUpdate(BaseModel):
     name: Text | None = None
     email: EmailStr | None = None
     phone: Text | None = None
+    text_opt_in: bool | None = None
+    role_preferences: list[Text] | None = None
 
-    _not_null = field_validator("name", "email")(reject_null)
+    _not_null = field_validator("name", "email", "text_opt_in")(reject_null)
+    _phone = field_validator("phone")(_phone)
 
 
-class UserRead(BaseModel):
+class UserRead(UtcModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     name: str
-    email: str
+    email: str | None
     phone: str | None
+    text_opt_in: bool
+    role_preferences: list[str]
     created_at: datetime
 
 
@@ -50,6 +66,13 @@ async def _commit(session: AsyncSession) -> None:
         ):
             raise HTTPException(
                 status.HTTP_409_CONFLICT, "A user with this email already exists"
+            ) from exc
+        if (
+            isinstance(exc.orig, UniqueViolation)
+            and exc.orig.diag.constraint_name == "uq_users_phone"
+        ):
+            raise HTTPException(
+                status.HTTP_409_CONFLICT, "A user with this phone number already exists"
             ) from exc
         raise
 

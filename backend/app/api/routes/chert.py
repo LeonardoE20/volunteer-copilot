@@ -3,9 +3,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.api.deps import InboundHandlerDep
+from app.api.deps import InboundHandlerDep, session_for
 from app.core.config import Settings, get_settings
-from app.services.chert import parse_inbound, verify_signature
+from app.services.chert import parse_inbound, parse_status_update, verify_signature
+from app.services.coordination import apply_provider_status
 
 router = APIRouter(prefix="/chert", tags=["chert"])
 
@@ -29,8 +30,15 @@ async def chert_webhook(
         raise HTTPException(401, "Invalid Chert signature")
 
     try:
-        message = parse_inbound(json.loads(body))
+        payload = json.loads(body)
+        message = parse_inbound(payload)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     if message:
         await handle(message)
+        return
+    update = parse_status_update(payload)
+    if update is not None:
+        async for session in session_for(request):
+            await apply_provider_status(session, update)
+            await session.commit()

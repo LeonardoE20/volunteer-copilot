@@ -4,12 +4,20 @@ import type {
 } from '../../../contracts/volunteer-contract.ts';
 import { VolunteerAppError } from './demo.ts';
 
-interface ApiEvent { id: string; title: string; description: string | null; location: string | null; starts_at: string; ends_at: string; created_at: string }
-interface ApiRole { id: string; event_id: string; name: string; slots_needed: number; starts_at: string; ends_at: string; created_at: string }
-interface ApiUser { id: string; name: string; email: string; phone: string | null; created_at: string }
+interface ApiEvent { id: string; title: string; description?: string | null; location: string | null; starts_at: string; ends_at: string; created_at?: string; timezone?: string; event_type?: string | null; status?: Event['status'] | 'scheduled' }
+interface ApiRole { id: string; event_id: string; name: string; slots_needed: number; starts_at: string; ends_at: string; created_at?: string }
+interface ApiUser { id: string; name: string; email?: string | null; phone: string | null; created_at?: string; text_opt_in?: boolean; role_preferences?: string[] }
+interface ApiParticipation { id: string; event_id: string; user_id: string; pool: Participation['pool']; status: Participation['status']; preferred_shift_ids: string[]; confirmed_shift_ids: string[]; availability: { starts_at: string; ends_at: string }[] | null }
+interface ApiShift { id: string; event_id: string; name: string; capacity: number; starts_at: string; ends_at: string; coverage?: { confirmed: number; unfilled: number; awaiting_reply: number; standby: number } }
+interface ApiWorkspace { event: ApiEvent; shifts: ApiShift[]; volunteers: ApiUser[]; participations: ApiParticipation[] }
+interface ApiDraft { id: string; event_id: string; purpose: MessageDraft['purpose']; text: string; participant_ids: string[]; send_at: string | null; status: string; skipped?: { participant_id: string; reason: string }[] }
+interface ApiDelivery { id: string; event_id: string | null; participation_id: string | null; draft_id: string | null; provider_message_id: string | null; state: Delivery['status']; error: string | null; created_at?: string }
+interface ApiDispatch { draft_id: string; status: string; scheduled_for: string | null; deliveries: ApiDelivery[] }
+interface ApiForm { event: ApiEvent; participant_id: string; volunteer_name: string; shifts: ApiShift[] }
 interface ValidationDetail { loc?: (string | number)[]; msg?: string }
+interface ErrorBody { code?: string; message?: string; retryable?: boolean; fields?: Record<string, string> }
 
-/** Maps only routes that exist on main. Missing workflow capabilities never use demo data. */
+/** Maps the shared VolunteerApp contract onto the FastAPI routes. A failed request never uses demo data. */
 export class HttpVolunteerApp implements VolunteerApp {
   readonly mode = 'api';
   readonly baseUrl: string;
@@ -37,16 +45,20 @@ export class HttpVolunteerApp implements VolunteerApp {
     if (!response.ok) {
       const detail: unknown = payload?.detail;
       const fieldErrors: Record<string, string> = {};
+      const structured = detail && typeof detail === 'object' && !Array.isArray(detail) ? detail as ErrorBody : undefined;
+      if (structured?.fields) Object.assign(fieldErrors, structured.fields);
       if (Array.isArray(detail)) {
         for (const issue of detail as ValidationDetail[]) {
           const field = (issue.loc || []).filter(part => part !== 'body' && part !== 'query').join('.');
           if (field && issue.msg) fieldErrors[field] = issue.msg;
         }
       }
-      const code: AppError['code'] = response.status === 404 ? 'not_found' : response.status === 409 ? 'conflict' : response.status === 429 ? 'rate_limited' : [400, 422].includes(response.status) ? 'validation' : 'upstream_failure';
-      const message = typeof detail === 'string' ? detail : Object.values(fieldErrors).join(' · ') || `The backend returned an error (${response.status}).`;
+      const fromStatus: AppError['code'] = response.status === 404 ? 'not_found' : response.status === 410 ? 'expired_link' : response.status === 409 ? 'conflict' : response.status === 429 ? 'rate_limited' : [400, 422].includes(response.status) ? 'validation' : 'upstream_failure';
+      const known: Record<string, AppError['code']> = { expired_form: 'expired_link', capacity: 'conflict', schedule_passed: 'conflict', event_cancelled: 'conflict', details_required: 'conflict', messaging_unavailable: 'messaging_unavailable', validation: 'validation', not_found: 'not_found', upstream: 'upstream_failure' };
+      const code = (structured?.code && known[structured.code]) || fromStatus;
+      const message = typeof detail === 'string' ? detail : structured?.message || Object.values(fieldErrors).join(' · ') || `The backend returned an error (${response.status}).`;
       const error = new VolunteerAppError(code, message, Object.keys(fieldErrors).length ? fieldErrors : undefined);
-      error.retryable = response.status === 429 || response.status >= 500;
+      error.retryable = structured?.retryable ?? (response.status === 429 || response.status >= 500);
       throw error;
     }
     return payload as T;
@@ -61,21 +73,30 @@ export class HttpVolunteerApp implements VolunteerApp {
     }
   }
   private event(record: ApiEvent): Event {
-    // Main does not persist type, IANA timezone, or lifecycle; these are display defaults only.
-    return { id: record.id, title: record.title, type: 'Event', location: record.location || '',
-      startsAt: record.starts_at, endsAt: record.ends_at, timeZone: this.timeZone,
-      status: Date.parse(record.ends_at) <= this.now() ? 'completed' : 'published' };
+    const ended = Date.parse(record.ends_at) <= this.now();
+    const status: Event['status'] = record.status === 'cancelled' ? 'cancelled' : record.status === 'draft' ? 'draft' : record.status === 'completed' || ended ? 'completed' : 'published';
+    return { id: record.id, title: record.title, type: record.event_type || 'Event', location: record.location || '',
+      startsAt: record.starts_at, endsAt: record.ends_at, timeZone: record.timezone || this.timeZone, status };
   }
-  private shift(record: ApiRole): Shift {
-    return { id: record.id, eventId: record.event_id, role: record.name, capacity: record.slots_needed, startsAt: record.starts_at, endsAt: record.ends_at };
+  private shift(record: ApiRole | ApiShift): Shift {
+    const capacity = 'slots_needed' in record ? record.slots_needed : record.capacity;
+    return { id: record.id, eventId: record.event_id, role: record.name, capacity, startsAt: record.starts_at, endsAt: record.ends_at };
   }
   private volunteer(record: ApiUser): Volunteer {
-    // Permission/preferences are unknown because the current API has no such fields.
-    return { id: record.id, name: record.name, email: record.email, phone: record.phone || '', preferredRoles: [], textOptIn: false };
+    return { id: record.id, name: record.name, email: record.email || undefined, phone: record.phone || '',
+      preferredRoles: record.role_preferences || [], textOptIn: record.text_opt_in ?? false };
+  }
+  private participation(record: ApiParticipation): Participation {
+    return { id: record.id, eventId: record.event_id, volunteerId: record.user_id, pool: record.pool, status: record.status,
+      preferredShiftIds: record.preferred_shift_ids || [], assignedShiftIds: record.confirmed_shift_ids || [],
+      availability: (record.availability || []).map(window => ({ startsAt: window.starts_at, endsAt: window.ends_at })) };
   }
   async listEvents(): Promise<Event[]> { return (await this.all<ApiEvent>('/events')).map(item => this.event(item)); }
   async createEvent(input: Omit<Event, 'id'>, shifts: Omit<Shift, 'id' | 'eventId'>[]): Promise<Event> {
-    const event = await this.request<ApiEvent>('/events', 'POST', { title: input.title, location: input.location || null, starts_at: input.startsAt, ends_at: input.endsAt });
+    const event = await this.request<ApiEvent>('/events', 'POST', {
+      title: input.title, location: input.location || null, starts_at: input.startsAt, ends_at: input.endsAt,
+      timezone: input.timeZone, event_type: input.type, status: input.status === 'completed' ? 'published' : input.status,
+    });
     try {
       for (const shift of shifts) await this.request<ApiRole>(`/events/${encodeURIComponent(event.id)}/roles`, 'POST', {
         name: shift.role, slots_needed: shift.capacity, starts_at: shift.startsAt, ends_at: shift.endsAt,
@@ -90,31 +111,78 @@ export class HttpVolunteerApp implements VolunteerApp {
     return this.event(event);
   }
   async getEventWorkspace(eventId: string): Promise<EventWorkspace> {
-    const id = encodeURIComponent(eventId);
-    const [event, roles, users] = await Promise.all([this.request<ApiEvent>(`/events/${id}`), this.request<ApiRole[]>(`/events/${id}/roles`), this.all<ApiUser>('/users')]);
-    const shifts = roles.map(item => this.shift(item));
+    const workspace = await this.request<ApiWorkspace>(`/events/${encodeURIComponent(eventId)}/workspace`);
+    const shifts = workspace.shifts.map(item => this.shift(item));
+    const coverage = workspace.shifts[0]?.coverage;
+    const confirmed = workspace.shifts.reduce((sum, item) => sum + (item.coverage?.confirmed ?? 0), 0);
     const capacity = shifts.reduce((sum, item) => sum + item.capacity, 0);
-    // No roster/count route exists yet. These placeholders must remain hidden by connection.roster.
-    // Users are the global directory, not evidence of membership in this event.
-    return { event: this.event(event), shifts, volunteers: users.map(item => this.volunteer(item)), participants: [],
-      coverage: { capacity, confirmed: 0, unfilled: capacity, awaitingReply: 0, standby: 0 },
-      shiftCoverage: shifts.map(shift => ({ shiftId: shift.id, capacity: shift.capacity, confirmed: 0, unfilled: shift.capacity })) };
+    return {
+      event: this.event(workspace.event), shifts, volunteers: workspace.volunteers.map(item => this.volunteer(item)),
+      participants: workspace.participations.map(item => this.participation(item)),
+      coverage: { capacity, confirmed, unfilled: Math.max(capacity - confirmed, 0), awaitingReply: coverage?.awaiting_reply ?? 0, standby: coverage?.standby ?? 0 },
+      shiftCoverage: workspace.shifts.map(item => ({ shiftId: item.id, capacity: item.capacity, confirmed: item.coverage?.confirmed ?? 0, unfilled: item.coverage?.unfilled ?? item.capacity })),
+    };
   }
   async listVolunteers(): Promise<Volunteer[]> { return (await this.all<ApiUser>('/users')).map(item => this.volunteer(item)); }
   async registerVolunteer(input: Omit<Volunteer, 'id'>): Promise<{ volunteerId: string }> {
     if (!input.email?.trim()) throw new VolunteerAppError('validation', 'Email is required by the connected backend.', { email: 'Enter an email address.' });
-    const user = await this.request<ApiUser>('/users', 'POST', { name: input.name, email: input.email.trim(), phone: input.phone.trim() || null });
+    const user = await this.request<ApiUser>('/users', 'POST', {
+      name: input.name, email: input.email.trim(), phone: input.phone.trim() || null,
+      text_opt_in: input.textOptIn, role_preferences: input.preferredRoles,
+    });
     return { volunteerId: user.id };
   }
-  private unavailable(feature: string): never {
-    throw new VolunteerAppError('messaging_unavailable', `${feature} is not available in the current backend yet. Switch to the clearly labeled sample mode to explore it.`);
+  async addEventVolunteers(eventId: string, volunteerIds: string[], pool: Participation['pool']): Promise<Participation[]> {
+    const rows = await this.request<ApiParticipation[]>(`/events/${encodeURIComponent(eventId)}/participations`, 'POST', { user_ids: volunteerIds, pool });
+    return rows.map(item => this.participation(item));
   }
-  async addEventVolunteers(_eventId: string, _volunteerIds: string[], _pool: Participation['pool']): Promise<Participation[]> { return this.unavailable('Event participation'); }
-  async createMessageDraft(_input: MessageDraftInput): Promise<MessageDraft> { return this.unavailable('Message campaigns'); }
-  async dispatchMessage(_draftId: string): Promise<DispatchReceipt> { return this.unavailable('Message dispatch'); }
-  async getDeliveries(_campaignId: string): Promise<Delivery[]> { return this.unavailable('Campaign delivery records'); }
-  async loadSignupForm(_token: string): Promise<SignupForm> { return this.unavailable('Public signup forms'); }
-  async submitSignupForm(_token: string, _input: SignupDetails): Promise<{ participantId: string; status: Participation['status'] }> { return this.unavailable('Public signup forms'); }
-  async confirmAssignment(_eventId: string, _participantId: string, _shiftId: string): Promise<Participation> { return this.unavailable('Role assignments'); }
-  async cancelParticipation(_eventId: string, _participantId: string): Promise<Participation> { return this.unavailable('Event participation'); }
+  async createMessageDraft(input: MessageDraftInput): Promise<MessageDraft> {
+    const preset: Record<number, string> = { 10080: '1w', 1440: '1d', 60: '1h' };
+    const timing = input.timing.kind === 'before_event'
+      ? (preset[input.timing.minutes] ? { relative_offset: preset[input.timing.minutes] } : { minutes_before: input.timing.minutes })
+      : input.timing.kind === 'at' ? { send_at: input.timing.at } : {};
+    const draft = await this.request<ApiDraft>(`/events/${encodeURIComponent(input.eventId)}/drafts`, 'POST', {
+      purpose: input.purpose, text: input.body, participant_ids: input.participantIds, audience: 'individual', ...timing,
+    });
+    return this.draft(input, draft);
+  }
+  async dispatchMessage(draftId: string): Promise<DispatchReceipt> {
+    const receipt = await this.request<ApiDispatch>(`/drafts/${encodeURIComponent(draftId)}/dispatch`, 'POST');
+    return { campaignId: receipt.draft_id, state: receipt.status === 'scheduled' ? 'scheduled' : 'queued',
+      deliveryIds: receipt.deliveries.map(item => item.id), ...(receipt.scheduled_for ? { scheduledAt: receipt.scheduled_for } : {}) };
+  }
+  async getDeliveries(campaignId: string): Promise<Delivery[]> {
+    const rows = await this.request<ApiDelivery[]>(`/drafts/${encodeURIComponent(campaignId)}/deliveries`);
+    return rows.map(item => ({ id: item.id, messageId: item.id, campaignId: item.draft_id || campaignId, eventId: item.event_id || '',
+      participantId: item.participation_id || '', providerMessageId: item.provider_message_id || undefined, status: item.state,
+      updatedAt: item.created_at || new Date(this.now()).toISOString(), ...(item.error ? { error: { code: item.state, message: item.error } } : {}) }));
+  }
+  async loadSignupForm(token: string): Promise<SignupForm> {
+    const form = await this.request<ApiForm>(`/forms/${encodeURIComponent(token)}`);
+    return { event: { ...this.event(form.event), location: form.event.location || '' }, participantId: form.participant_id,
+      volunteerName: form.volunteer_name, shifts: form.shifts.map(item => this.shift(item)) };
+  }
+  async submitSignupForm(token: string, input: SignupDetails): Promise<{ participantId: string; status: Participation['status'] }> {
+    const result = await this.request<{ receipt: string; status: Participation['status'] }>(`/forms/${encodeURIComponent(token)}`, 'POST', {
+      preferred_shift_ids: input.preferredShiftIds,
+      availability: input.availability.map(window => ({ starts_at: window.startsAt, ends_at: window.endsAt })),
+      ...(input.uniformNotes ? { uniform_notes: input.uniformNotes } : {}),
+    });
+    return { participantId: result.receipt, status: result.status };
+  }
+  async confirmAssignment(eventId: string, participantId: string, shiftId: string): Promise<Participation> {
+    const row = await this.request<ApiParticipation>(`/participations/${encodeURIComponent(participantId)}/confirm`, 'POST', { shift_id: shiftId });
+    if (row.event_id !== eventId) throw new VolunteerAppError('conflict', 'That assignment belongs to a different event.');
+    return this.participation(row);
+  }
+  async cancelParticipation(eventId: string, participantId: string): Promise<Participation> {
+    const row = await this.request<ApiParticipation>(`/participations/${encodeURIComponent(participantId)}/cancel`, 'POST');
+    if (row.event_id !== eventId) throw new VolunteerAppError('conflict', 'That participation belongs to a different event.');
+    return this.participation(row);
+  }
+  private draft(input: MessageDraftInput, draft: ApiDraft): MessageDraft {
+    return { ...input, id: draft.id, participantIds: draft.participant_ids, body: draft.text,
+      ...(draft.send_at ? { resolvedSendAt: draft.send_at } : {}),
+      excluded: (draft.skipped || []).map(item => ({ participantId: item.participant_id, reason: item.reason })) };
+  }
 }

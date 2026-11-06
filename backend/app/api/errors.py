@@ -1,4 +1,7 @@
-from fastapi import Request
+from collections.abc import Mapping
+from typing import NoReturn
+
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from keenable import (
     KeenableAPIError,
@@ -7,6 +10,21 @@ from keenable import (
     KeenableInvalidRequestError,
     KeenableRateLimitError,
 )
+
+
+def fail(
+    status_code: int,
+    code: str,
+    message: str,
+    *,
+    retryable: bool = False,
+    fields: Mapping[str, str] | None = None,
+) -> NoReturn:
+    """Raise an application error. Keenable routes keep their own `{detail: string}` shape."""
+    detail: dict[str, object] = {"code": code, "message": message, "retryable": retryable}
+    if fields:
+        detail["fields"] = dict(fields)
+    raise HTTPException(status_code, detail)
 
 
 def keenable_status(exc: KeenableError) -> int:

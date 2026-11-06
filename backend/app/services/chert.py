@@ -109,11 +109,29 @@ InboundHandler = Callable[[InboundMessage], Awaitable[None]]
 
 
 async def log_inbound(message: InboundMessage) -> None:
-    """Stand-in InboundHandler until the core service consumes replies."""
+    """Log a reply. The webhook uses handle_reply instead; this remains for a local stand-in."""
     logger.warning("Chert reply %s in chat %s isn't handled yet", message.event_id, message.chat_id)
 
 
+@dataclass(frozen=True)
+class ProviderStatus:
+    """A delivery update carried on a webhook that is not an inbound reply."""
+
+    event_id: str
+    message_id: str
+    state: DeliveryState
+    delivered_at: datetime | None = None
+
+
 class ChertClient:
+    # Group chats exist in Chert (POST /api/v1/chats with several recipients) but need a sender
+    # line and a different request. This adapter does not call that, and it must not quietly
+    # turn a group draft into separate texts.
+    group_block_reason = (
+        "This adapter sends one person at a time and does not open a Chert group chat. "
+        "The group was not sent, and it was not split into individual texts."
+    )
+
     def __init__(self, signing_secret: str | None, *, client: httpx.AsyncClient | None = None):
         self._signing_secret = signing_secret
         # iMessage sends can take several seconds before Chert answers.
@@ -208,6 +226,27 @@ def verify_signature(
     signed = timestamp.encode() + b"." + raw_body
     expected = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
     return hmac.compare_digest(signature.lower(), expected)
+
+
+def parse_status_update(payload: Any) -> ProviderStatus | None:
+    """Read a delivery update from a webhook that is not `message.received`.
+
+    Chert's documented push event is `message.received`. Delivery is normally reconciled
+    with get_message. If some other event still carries a message id and status, record it.
+    """
+    if not isinstance(payload, dict) or payload.get("event_type") == "message.received":
+        return None
+    data = payload.get("data")
+    message = data.get("message") if isinstance(data, dict) else None
+    if not isinstance(message, dict) or not message.get("id") or "status" not in message:
+        return None
+    code = message.get("code") if isinstance(message.get("code"), int) else None
+    return ProviderStatus(
+        event_id=str(payload.get("event_id") or ""),
+        message_id=str(message["id"]),
+        state=_state(message.get("status"), message.get("error"), code),
+        delivered_at=_time(message.get("delivered_at")),
+    )
 
 
 def parse_inbound(payload: Any) -> InboundMessage | None:

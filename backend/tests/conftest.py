@@ -9,6 +9,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+import app.models  # noqa: F401  registers tables on Base.metadata
 from app.api.deps import get_keenable, get_session
 from app.core.config import Settings
 from app.db.base import Base
@@ -84,4 +85,9 @@ def db(test_engine: Engine) -> Iterator[None]:
     yield
     app.dependency_overrides.pop(get_session, None)
     with test_engine.begin() as connection:
-        connection.execute(text("truncate users, events, roles, signups"))
+        connection.execute(
+            text(
+                "truncate provider_events, inbound_replies, deliveries, form_links, "
+                "message_drafts, participations, signups, roles, users, events"
+            )
+        )

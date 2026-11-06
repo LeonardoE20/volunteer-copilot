@@ -8,7 +8,7 @@ export const demoApi = new DemoVolunteerApp();
 const apiMode = import.meta.env.VITE_DATA_MODE === 'api';
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 export const connection: { mode: 'demo' | 'api'; roster: boolean; messaging: boolean; signup: boolean; eventCreation: boolean; baseUrl?: string } = {
-  mode: apiMode ? 'api' : 'demo', roster: !apiMode, messaging: !apiMode, signup: !apiMode,
+  mode: apiMode ? 'api' : 'demo', roster: true, messaging: true, signup: true,
   eventCreation: true, ...(apiMode ? { baseUrl } : {}),
 };
 // Swap only this adapter as B adds domain routes. Unsupported live actions stay explicit.

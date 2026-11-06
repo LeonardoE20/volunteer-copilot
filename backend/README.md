@@ -96,6 +96,29 @@ every user's email and phone. Add auth before exposing the API beyond local deve
 - `ends_at` must be after `starts_at`. For `PATCH`, this is checked after merging your changes, so
   moving `starts_at` past the stored `ends_at` is rejected. `slots_needed` must be at least 1.
 - A role's times don't have to fall inside its event's times, so a setup crew can start early.
+- Events also store `timezone` (default `America/Los_Angeles`), `status` (`draft`, `published`,
+  `completed`, or `cancelled`), and optional `event_type`. Users store `text_opt_in` and
+  `role_preferences`. Phone numbers are normalized, and a repeated phone is `409`.
+
+## Roster, messages, and forms
+
+The coordinator UI calls these. Participation is per event: `not_invited`, `invited`, `interested`,
+`details_submitted`, `confirmed`, plus `declined` and `cancelled`. Pending replies do not fill a shift.
+
+| Method | Path | Does |
+| --- | --- | --- |
+| `GET` | `/events/{id}/workspace` | Event, shifts, volunteers on that event, participation, and coverage |
+| `POST` | `/events/{id}/participations` | Add volunteers to the primary or standby pool |
+| `POST` | `/events/{id}/role-presets` | Add Cook, Wrapper, Cashier, Runner, Dishwasher, and Cleaner if missing |
+| `POST` | `/events/{id}/drafts` | Review a message. `relative_offset` is `1w`, `1d`, or `1h`; `minutes_before` is any other lead time |
+| `POST` | `/drafts/{id}/dispatch` | Accept the send. A future time is scheduled, not delivered |
+| `GET` | `/drafts/{id}/deliveries` | Per-recipient `queued`, `sent`, `delivered`, `failed`, or `unknown` |
+| `POST` | `/jobs/dispatch-due` | Send scheduled drafts whose time has arrived |
+| `GET` `POST` | `/forms/{token}` | Public form for one participant. Submission does not confirm a shift |
+| `POST` | `/participations/{id}/confirm` | Assign one shift after details are submitted, checking capacity and overlap |
+| `POST` | `/participations/{id}/cancel` | Withdraw that person from the event |
+
+A YES reply on `POST /chert/webhook` records interest and texts one form link. STOP opts the contact out. Two open invitations ask which event, instead of guessing. Domain errors use `{detail: {code, message, retryable}}`.
 
 ## Chert messaging
 
