@@ -21,11 +21,11 @@ software or make volunteers create accounts."
 "In a few seconds it's a roster: griddles 6 people, cash box 2 people marked adults only, and the
 to-dos it found, like 'Ray has the code'. The coordinator checks it and publishes."
 [Press Publish.]
-"Volunteers get a link. No account, no password: pick a slot, type a name and a phone number."
+"Volunteers get a link and pick a slot, with no account, just like the good free tools. Type a name and a phone number."
 [Sign up on the second phone, or press Simulate a volunteer.]
 "The roster updates by itself, and the gaps stay red."
 [Press Fill this gap on Syrup/tables.]
-"Now the part other free tools leave to the coordinator: who to ask. It suggests people who did this
+"Now the part the sign-up tools we've seen leave to the coordinator: who to ask. It suggests people who did this
 job before and aren't already busy, and drafts each message. Look at the students: they are never
 messaged one-to-one. They get one group message that includes their advisor. That's our
 understanding of Kiwanis youth-protection guidance, and we want to confirm it with you."
@@ -43,11 +43,12 @@ in a phone-size browser. We had a security review and an accessibility check, an
 **What still needs work (about 15 seconds)**
 "What you're seeing is demo mode: the data stays on this device, and the AI is simulated with simple
 rules. The live version with a shared database and real AI is written and tested with stand-ins, but
-it hasn't run for real yet. Real texting isn't built. And honestly, SignUpGenius and Golden are free for
-simple sign-ups. Our difference is the last 48 hours: chasing the right person, backfilling, and
-keeping students safe."
+it hasn't run for real yet. Real texting isn't built. And honestly, free tools already do simple
+no-account sign-ups, including open-source ones like OpenSignup, and SignUpGenius and Golden.
+Our difference is turning the messy note into a roster, chasing the right person for an empty slot,
+youth-safe group messages with the advisor included, and advisor-confirmed hours."
 
-Do not quote any no-show statistic. Do not say the Campbell club uses any particular tool unless the
+Do not quote any no-show statistic. Do not claim we are the only tool with no-account sign-up: we are not. Do not say the Campbell club uses any particular tool unless the
 partners told us so at the panel.
 
 ---
@@ -89,8 +90,10 @@ partners told us so at the panel.
 - **"Adults only" relies on volunteers telling the truth** about being a student.
 - **There is no automatic deletion** of contact details after an event yet.
 - **We have not interviewed a coordinator yet.** Your answers today are our first real feedback.
-- **Free tools already exist** for simple sign-ups (for example SignUpGenius and Golden). What we add is
-  chasing the right people, backfilling, and youth-safe messaging, with nothing to set up.
+- **Free tools already exist for no-account sign-ups**, including open-source ones (for example
+  OpenSignup) as well as SignUpGenius and Golden. No-account sign-up is not what's new here. What we add
+  is: the pasted note becomes a roster; chasing the right person for an empty slot, with backfill;
+  youth-safe group messages with the advisor included; and advisor-confirmed student hours.
 
 **Questions for you**
 1. What do you use today, and what's painful about it?

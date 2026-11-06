@@ -4,6 +4,21 @@ Short version: **the wedge is real but thin.** No single product we found does a
 piece already exists somewhere, often for free. We cannot win on "nobody else does this". We can win
 on "this fixes the Campbell club's actual Friday-night problem in two minutes, with nothing to set up."
 
+**Update, Nov 6 (first look, README level only; see `docs/research/open-source.md`):** open-source
+tools already offer no-account sign-up. **OpenSignup** (AGPL-3.0) is free, ad-free and self-hostable.
+Its README says "no accounts for participants — ever", and it has day-before reminder emails and lets
+organizers create sign-ups through an AI assistant. **playasoft/volunteers** (AGPL-3.0) is a long-running
+open-source festival shift scheduler. **BoosterWorks** (2011–2012) let admins move people between a
+waitlist and shift slots. So no-account sign-up, free, ad-free, reminders and waitlists are **not** our
+difference. Our difference is only these four things, none of which we found in any tool we checked:
+1. **Pasted note to roster:** a coordinator's messy note becomes draft slots with counts, times,
+   adults-only flags and to-dos, ready to edit.
+2. **Chasing the right person for an empty slot:** suggesting who to ask (did that job before, not
+   busy) and drafting the message, plus backfill drafts the moment someone drops out.
+3. **Youth-safe group messages:** students are only ever messaged in a group that includes the advisor.
+4. **Advisor-confirmed student hours:** a private link where the advisor confirms service hours with one tap.
+We checked these against README pages only, not code, so treat "not found" as "not seen yet".
+
 All competitor facts below come from `docs/research/competitors.md`. Important caveat: the session's
 network blocked direct visits to vendor sites, so every claim there came from search-result summaries
 and review aggregators, not from a page read today. Treat them as likely, not confirmed.
@@ -20,8 +35,10 @@ and review aggregators, not from a page read today. Treat them as likely, not co
 
 ## Does anyone do all of it?
 
-No. Our five-part combination (note to roster, targeted gap-chasing with no-show backfill,
-no-account signup, free, built for small groups) is not offered by any product we found.
+Not that we found, but several parts are common. No-account sign-up and free, ad-free use are already
+offered by open-source tools (OpenSignup, above) and by SignUpGenius's free tier, so they are not part of
+our difference. The combination of note to roster, targeted gap-chasing with backfill, youth-safe group
+messaging and advisor-confirmed hours was not in any product or README we checked.
 
 - GrasshopperSignup comes closest on the sign-up side: free, AI form from plain words, small groups.
   It sends only generic reminders and does not chase specific people for a specific empty slot.
@@ -33,7 +50,8 @@ no-account signup, free, built for small groups) is not offered by any product w
 
 ## Why the wedge is weak
 
-1. "Note to form" alone is not unique. GrasshopperSignup already does it.
+1. "Note to form" alone is not unique. GrasshopperSignup already does it, and OpenSignup lets organizers
+   create sign-ups through an AI assistant. No-account sign-up is not unique either (OpenSignup, SignUpGenius).
 2. Gap-chasing is a feature, not a product. Any of these vendors could add "text people who haven't
    signed up yet" in a sprint.
 3. Free and good enough beats new. A club already on SignUpGenius or Golden has little reason to switch.

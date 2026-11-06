@@ -27,6 +27,10 @@ The research and documents were produced with the help of an AI coding assistant
 directed by Leonardo. Research sources are cited with URLs inside each research file. Claims the
 assistant could not confirm are marked UNVERIFIED.
 
+We looked at open-source projects (OpenSignup, playasoft/volunteers, BoosterWorks) for ideas only,
+reading their public README pages, and copied no code from them, because AGPL code would put license
+obligations on our repo.
+
 ## What we will do on event day
 We will read the event rules first. If prepared code is allowed, we will say so on stage and show
 this file. If the rules require building from scratch, we will start a new, empty repository and

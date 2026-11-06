@@ -52,7 +52,7 @@ Use demo mode unless live keys were set up. Demo mode keeps data on one device, 
    - Mark the volunteer who just signed up for Griddles as **Dropped out** ("like Tom and his knee in the note"). Backfill messages appear right away, aimed at people who did griddles before.
    - Point out that nothing is sent automatically: the coordinator taps "Open in Messages".
 3. **What we tested (15 s):** 62 automated tests, including "a student is never messaged one-to-one", plus a full browser run of the flow and whatever the partner tried today.
-4. **What still needs work (15 s):** real texting (Twilio), confirming the youth-protection rule with the club, real coordinator interviews, and honesty that SignUpGenius and Golden are free for simple sign-ups. Our difference is the last 48 hours: chasing the right people and backfilling.
+4. **What still needs work (15 s):** real texting (Twilio), confirming the youth-protection rule with the club, real coordinator interviews, and honesty that free tools (including open-source OpenSignup, SignUpGenius and Golden) already do no-account sign-ups. Our difference: note to roster, chasing the right person, youth-safe group messages, and advisor-confirmed hours.
 
 Do not quote any no-show statistic.
 

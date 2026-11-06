@@ -31,6 +31,16 @@ git ls-remote --tags origin
 - No paid services, no accounts or projects created, nothing deployed publicly, no real personal data,
   nothing sent automatically, no Twilio.
 
+## Optional ideas (only if Friday's rules allow building on prepared work)
+These are ideas, not plans. Build them only if the rules allow prepared work and the partners ask for
+something like them. Otherwise skip them.
+- **Waitlist with move-from-waitlist:** when a slot is full, volunteers join a waitlist, and the
+  coordinator moves someone into the slot with one tap, which is natural for backfill. The idea is old
+  and proven (BoosterWorks had it in 2011). Build it from our own design; do not copy code.
+- **Reminders:** an evening-before reminder message, drafted for the coordinator to send (still never
+  sent automatically unless real texting is added). OpenSignup already does reminder emails, so this is
+  catch-up, not a difference.
+
 ## What is done
 - **Research and design:** `docs/research/`, `docs/WEDGE.md` (the wedge is real but thin), and `docs/SPEC.md`.
 - **Foundation, tag `foundation-v0` = `5e94780`:** scaffold, config, database schema with row-level
@@ -86,6 +96,9 @@ git ls-remote --tags origin
 5. **The rule-based parser is simple.** The coordinator always reviews the draft. The real AI is wired in but has not run live.
 6. **Not built:** Twilio texting and evening-before reminders.
 7. Much of the competitor and pain-point research is marked UNVERIFIED (vendor sites and Reddit were blocked).
+8. **No-account sign-up is not unique.** Open-source OpenSignup already offers it free, along with
+   reminders and AI-assistant sign-up creation (README-level first look, `docs/research/open-source.md`).
+   The pitch now claims only our four differences.
 
 ## Things you must do
 1. Push the tags (top of this page).
