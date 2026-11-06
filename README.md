@@ -1,5 +1,7 @@
 # Volunteer Copilot
 
+**Teammates, start here:** see docs/TEAM.md for our roles, rules and today's timeline, then docs/FRIDAY.md for the runbook.
+
 A free, zero-setup helper for small volunteer groups like a Kiwanis club or a high-school Key Club,
 focused on the last 48 hours before an event.
 
