@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     # Unset means Keenable's keyless tier, which is rate limited per IP.
     keenable_api_key: str | None = None
+    # Chert Messaging API secret, sent as a bearer token. Sending fails until it is set.
+    chert_signing_secret: str | None = None
+    # Secret of the Chert webhook subscription. The reply webhook refuses events until it is set.
+    chert_webhook_secret: str | None = None
     # The default is the Supabase CLI's local database (`supabase start`).
     database_url: str = "postgresql+psycopg://postgres:postgres@127.0.0.1:54322/postgres"
 

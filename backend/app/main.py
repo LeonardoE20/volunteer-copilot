@@ -9,6 +9,7 @@ from app.api.errors import keenable_error_handler
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.session import create_engine, create_sessionmaker
+from app.services.chert import ChertClient
 from app.services.keenable import KeenableClient
 
 
@@ -19,8 +20,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = create_engine(settings.database_url)
     app.state.sessionmaker = create_sessionmaker(engine)
     try:
-        async with KeenableClient(api_key=settings.keenable_api_key) as keenable:
+        async with (
+            KeenableClient(api_key=settings.keenable_api_key) as keenable,
+            ChertClient(signing_secret=settings.chert_signing_secret) as chert,
+        ):
             app.state.keenable = keenable
+            app.state.chert = chert
             yield
     finally:
         await engine.dispose()

@@ -97,6 +97,48 @@ every user's email and phone. Add auth before exposing the API beyond local deve
   moving `starts_at` past the stored `ends_at` is rejected. `slots_needed` must be at least 1.
 - A role's times don't have to fall inside its event's times, so a setup crew can start early.
 
+## Chert messaging
+
+[Chert](https://docs.trychert.com) sends and receives volunteer texts as iMessages. Only
+`app/services/chert.py` knows Chert's API; the rest of the app uses its normalized results. Set
+`CHERT_SIGNING_SECRET` to send and `CHERT_WEBHOOK_SECRET` to receive replies.
+
+### Sending
+
+```python
+from app.api.deps import ChertDep
+
+
+async def invite(chert: ChertDep) -> None:
+    result = await chert.send("+14155551234", "Can you help Saturday?", idempotency_key="msg-123")
+```
+
+| `result.state` | Meaning |
+| --- | --- |
+| `queued` | Chert is still trying; check later with `chert.get_message(result.message_id)` |
+| `sent` | Handed to iMessage or SMS. Not proof of delivery |
+| `delivered` | Chert observed delivery or a read receipt |
+| `failed` | Chert confirms it didn't reach the recipient; `error` and `retryable` say why |
+| `unknown` | The outcome can't be confirmed and it may have arrived. Check `get_message` or the conversation before sending again |
+
+Use one `idempotency_key` for every attempt at the same intended message, so Chert returns its
+saved result instead of sending again. `ChertError` means nothing was sent: bad credentials,
+invalid input, a rate limit, or Chert unreachable.
+
+### Receiving replies
+
+`POST /api/v1/chert/webhook` checks Chert's signature, turns each `message.received` event into an
+`InboundMessage` (event, message and chat ids, sender, text, attachment ids and received time) and
+passes it to the handler from `get_inbound_handler` in `app/api/deps.py`. Until the core service
+handles replies, that handler only logs a warning. Chert delivers events at least once, so the
+handler should deduplicate on `event_id`.
+
+To receive replies, create a webhook subscription for `message.received` that points at
+`https://<public host>/api/v1/chert/webhook`, in the Chert console or with
+`POST /api/v1/webhook-subscriptions`, and put the secret it shows once in `CHERT_WEBHOOK_SECRET`.
+Locally, without a public URL, use a tunnel, or read replies from Chert's
+[event stream or dev inbox](https://docs.trychert.com/api/events) instead.
+
 ## Database
 
 The API talks to Postgres (Supabase in production) through async SQLAlchemy 2.1 and the psycopg 3
@@ -181,13 +223,13 @@ app/
   main.py           # app factory, middleware, router mounting
   core/config.py    # settings loaded from env / .env
   api/router.py     # aggregates route modules
-  api/deps.py       # shared dependencies (Keenable client, database session, record loaders)
+  api/deps.py       # shared dependencies (Keenable and Chert clients, reply handler, session, record loaders)
   api/errors.py     # maps Keenable errors to HTTP statuses
   api/schemas.py    # request field types and checks shared by the CRUD routes
   api/routes/       # one module per resource
   db/               # declarative Base, engine and session factory
   models/           # SQLAlchemy models
-  services/         # clients for outside services (Keenable)
+  services/         # clients for outside services (Keenable, Chert)
 migrations/         # Alembic environment and revisions
 tests/
 ```

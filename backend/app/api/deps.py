@@ -6,11 +6,21 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event, Role, User
+from app.services.chert import ChertClient, InboundHandler, log_inbound
 from app.services.keenable import KeenableClient
 
 
 def get_keenable(request: Request) -> KeenableClient:
     return request.app.state.keenable
+
+
+def get_chert(request: Request) -> ChertClient:
+    return request.app.state.chert
+
+
+def get_inbound_handler() -> InboundHandler:
+    # Replace with the core service's reply handling (opt-outs, YES to form link).
+    return log_inbound
 
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -20,6 +30,8 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
 
 
 KeenableDep = Annotated[KeenableClient, Depends(get_keenable)]
+ChertDep = Annotated[ChertClient, Depends(get_chert)]
+InboundHandlerDep = Annotated[InboundHandler, Depends(get_inbound_handler)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
