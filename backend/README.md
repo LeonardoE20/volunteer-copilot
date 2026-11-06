@@ -68,6 +68,66 @@ pinned below 0.2.
 Keenable errors map to `400` (bad arguments, such as an unparseable date), `429` (rate limited),
 `503` (Keenable unreachable) and `502` (anything else, such as `402` out of credits).
 
+## Database
+
+The API talks to Postgres (Supabase in production) through async SQLAlchemy 2.1 and the psycopg 3
+driver, and Alembic manages the schema. Set `DATABASE_URL` to the Supabase **Session pooler** URI
+from the dashboard's Connect dialog; a `postgresql://` URL is switched to `postgresql+psycopg://`
+automatically. Use the session pooler on port 5432, not the transaction pooler on port 6543:
+psycopg prepares repeated statements, which transaction mode doesn't support. The direct
+connection is IPv6 only. With `DATABASE_URL` unset, the API uses the Supabase CLI's local database
+(`supabase start`).
+
+The engine connects on first use, so the API starts even if the database is unreachable.
+
+### Using a session in a route
+
+```python
+from app.api.deps import SessionDep
+
+
+@router.post("/volunteers")
+async def create_volunteer(body: VolunteerIn, session: SessionDep) -> VolunteerOut:
+    volunteer = Volunteer(name=body.name)
+    session.add(volunteer)
+    await session.commit()
+    return VolunteerOut.model_validate(volunteer, from_attributes=True)
+```
+
+Each request gets its own `AsyncSession`. Commit explicitly; anything left uncommitted is rolled
+back when the request ends.
+
+### Schema
+
+| Table | Holds |
+| --- | --- |
+| `events` | Title, description, location, `starts_at` and `ends_at` |
+| `roles` | A volunteer position at one event: `name`, `slots_needed` and its own times |
+| `users` | Volunteers and coordinators: `name`, `email` (unique, ignoring case) and `phone`. Not tied to Supabase Auth |
+| `signups` | One row per user per role; the pair is the primary key |
+
+IDs are UUIDs and times are `timestamptz`. Deleting an event deletes its roles and their signups,
+and deleting a user deletes that user's signups. Nothing stops a role from getting more signups
+than `slots_needed` yet; enforce that when sign-up endpoints are added.
+
+### Models and migrations
+
+Put each model in a module under `app/models/`, subclass `app.db.base.Base`, and import the module
+in `app/models/__init__.py` so Alembic sees it. Then generate and apply a migration:
+
+```sh
+alembic revision --autogenerate -m "add volunteers"   # review the file in migrations/versions/
+alembic upgrade head
+alembic downgrade -1                                   # undo the last migration
+```
+
+Supabase lets its `anon` role read and write every new table in `public` through the Data API,
+using the project's public anon key. Autogenerate therefore adds `enable row level security` after
+each table it creates (see `migrations/env.py`). RLS with no policies blocks the Data API, and the
+backend still has full access because it owns the tables. A migration you write by hand with
+`alembic revision` (no `--autogenerate`) doesn't get this, so add
+`op.execute('alter table "x" enable row level security')` yourself.
+
 ## Test and lint
 
 ```sh
@@ -83,10 +143,13 @@ app/
   main.py           # app factory, middleware, router mounting
   core/config.py    # settings loaded from env / .env
   api/router.py     # aggregates route modules
-  api/deps.py       # shared dependencies (Keenable client)
+  api/deps.py       # shared dependencies (Keenable client, database session)
   api/errors.py     # maps Keenable errors to HTTP statuses
   api/routes/       # one module per resource
+  db/               # declarative Base, engine and session factory
+  models/           # SQLAlchemy models
   services/         # clients for outside services (Keenable)
+migrations/         # Alembic environment and revisions
 tests/
 ```
 
